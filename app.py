@@ -1611,6 +1611,20 @@ def init_db():
     with app.app_context():
         db.create_all()
 
+        # Run schema migrations for SQLite (add missing columns)
+        if "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]:
+            from sqlalchemy import text, inspect
+            inspector = inspect(db.engine)
+
+            # Check if user table exists and has role column
+            if "user" in inspector.get_table_names():
+                columns = [col["name"] for col in inspector.get_columns("user")]
+                if "role" not in columns:
+                    db.session.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'sales'"))
+                    db.session.execute(text("UPDATE user SET role='admin' WHERE username='admin'"))
+                    db.session.commit()
+                    logger.info("Added role column to user table")
+
         # Create default admin user if no users exist
         if User.query.count() == 0:
             admin = User(
