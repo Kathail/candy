@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+
+<div x-data="leadsPage()">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">Leads</h1>
+            <p class="text-xs text-muted mt-1">
+                {% if request.args.get('query') %}
+                    Showing {{ pagination.total }} of {{ total_leads }} leads
+                {% else %}
+                    {{ total_leads }} total leads
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            {% if current_user.is_admin() %}
+            <a href="{{ url_for('admin_import_leads') }}"
+               class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Import CSV
+            </a>
+            {% endif %}
+            <button
+                @click="showAddModal = true"
+                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                + Add Lead
+            </button>
+        </div>
+    </div>
+
+    <!-- Search and Sort -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <input
+            type="text"
+            name="query"
+            placeholder="Search by name, city, notes..."
+            class="md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            value="{{ request.args.get('query', '') }}"
+            hx-get="/leads"
+            hx-trigger="keyup changed delay:500ms"
+            hx-target="#table-body"
+            hx-include="[name='sort']"
+            hx-swap="innerHTML"
+        />
+
+        <select
+            name="sort"
+            class="bg-panel border border-border rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            hx-get="/leads"
+            hx-trigger="change"
+            hx-target="#table-body"
+            hx-include="[name='query']"
+            hx-swap="innerHTML">
+            <option value="name" {% if request.args.get('sort', 'name') == 'name' %}selected{% endif %}>Sort: Name A-Z</option>
+            <option value="city" {% if request.args.get('sort') == 'city' %}selected{% endif %}>Sort: City</option>
+            <option value="newest" {% if request.args.get('sort') == 'newest' %}selected{% endif %}>Sort: Newest First</option>
+            <option value="oldest" {% if request.args.get('sort') == 'oldest' %}selected{% endif %}>Sort: Oldest First</option>
+        </select>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-panel rounded-lg p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">Total Leads</div>
+            <div class="text-2xl font-semibold text-warn">{{ total_leads }}</div>
+        </div>
+        <div class="bg-panel rounded-lg p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">Showing</div>
+            <div class="text-2xl font-semibold">{{ leads|length }}</div>
+        </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="bg-panel rounded-xl shadow-soft overflow-hidden">
+        <div class="scrollable-table">
+            <table class="w-full text-sm">
+                <thead class="bg-panel2 text-muted">
+                    <tr>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Name</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Phone</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Address</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Notes</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Added</th>
+                        <th class="text-center px-4 py-3 font-semibold whitespace-nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    {% include "partials/leads_table_rows.html" %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="flex items-center justify-between mt-6">
+        <div class="text-sm text-muted">
+            Showing {{ ((pagination.page - 1) * 50) + 1 }} - {{ [pagination.page * 50, pagination.total]|min }} of {{ pagination.total }}
+        </div>
+
+        <div class="flex gap-2">
+            {% if pagination.has_prev %}
+            <a href="?page={{ pagination.prev_num }}&query={{ request.args.get('query', '') }}&sort={{ request.args.get('sort', 'name') }}"
+               class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                &#8592; Previous
+            </a>
+            {% else %}
+            <span class="px-3 py-2 bg-panel2 text-muted rounded text-sm cursor-not-allowed">
+                &#8592; Previous
+            </span>
+            {% endif %}
+
+            <div class="flex gap-1">
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <span class="px-3 py-2 bg-brand text-white rounded text-sm font-semibold">
+                            {{ p }}
+                        </span>
+                        {% else %}
+                        <a href="?page={{ p }}&query={{ request.args.get('query', '') }}&sort={{ request.args.get('sort', 'name') }}"
+                           class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                            {{ p }}
+                        </a>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-3 py-2 text-muted">...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if pagination.has_next %}
+            <a href="?page={{ pagination.next_num }}&query={{ request.args.get('query', '') }}&sort={{ request.args.get('sort', 'name') }}"
+               class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                Next &#8594;
+            </a>
+            {% else %}
+            <span class="px-3 py-2 bg-panel2 text-muted rounded text-sm cursor-not-allowed">
+                Next &#8594;
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Add Lead Modal -->
+    <div x-show="showAddModal"
+         x-cloak
+         @keydown.escape.window="showAddModal = false"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div @click="showAddModal = false" class="fixed inset-0 bg-black/50"></div>
+
+            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Add New Lead</h3>
+                    <button @click="showAddModal = false" class="text-muted hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form action="/leads/add" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Name *</label>
+                        <input type="text" name="name" required
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="Business name">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Phone</label>
+                        <input type="tel" name="phone"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="(555) 123-4567">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Address</label>
+                        <input type="text" name="address"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="123 Main St, City, State">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">City</label>
+                        <input type="text" name="city"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="Springfield">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Notes</label>
+                        <textarea name="notes" rows="3"
+                                  class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                                  placeholder="Any notes about this lead..."></textarea>
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit"
+                                class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Add Lead
+                        </button>
+                        <button type="button"
+                                @click="showAddModal = false"
+                                class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Lead Modal -->
+    <div id="edit-modal-wrapper" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div onclick="closeEditModal()" class="fixed inset-0 bg-black/50"></div>
+            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6" id="edit-lead-modal">
+                <div class="text-center py-4">
+                    <div class="animate-spin w-8 h-8 border-4 border-brand border-t-transparent rounded-full mx-auto"></div>
+                    <div class="text-xs text-muted mt-2">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<script>
+    function openEditModal(leadId) {
+        Modal.loadContent('edit-modal-wrapper', 'edit-lead-modal', `/leads/${leadId}/edit`);
+    }
+
+    function closeEditModal() {
+        Modal.close('edit-modal-wrapper');
+    }
+
+    function leadsPage() {
+        return {
+            showAddModal: false
+        };
+    }
+</script>
+
+{% endblock %}

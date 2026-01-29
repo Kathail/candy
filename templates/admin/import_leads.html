@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Import Leads{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-semibold">Import Leads</h1>
+        <p class="text-xs text-muted mt-1">Upload a CSV file to import leads</p>
+    </div>
+
+    <div class="bg-panel rounded-xl shadow-soft p-6">
+        {% if error %}
+        <div class="bg-danger/20 border border-danger/50 text-danger text-sm px-4 py-3 rounded-lg mb-6">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="bg-good/20 border border-good/50 text-good text-sm px-4 py-3 rounded-lg mb-6">
+            {{ success }}
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-medium mb-2">CSV File</label>
+                <div class="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-brand transition">
+                    <input type="file" name="file" accept=".csv" required
+                           class="w-full cursor-pointer"
+                           onchange="updateFileName(this)"/>
+                    <div class="text-sm text-muted mt-2" id="file-name">Select a CSV file</div>
+                </div>
+            </div>
+
+            <!-- CSV Format Info -->
+            <div class="p-4 bg-panel2 rounded-lg">
+                <div class="text-sm font-medium mb-2">Expected CSV Format</div>
+                <div class="text-xs text-muted space-y-1">
+                    <p>Required column: <code class="bg-panel px-1 rounded">name</code></p>
+                    <p>Optional columns: <code class="bg-panel px-1 rounded">phone</code>, <code class="bg-panel px-1 rounded">address</code>, <code class="bg-panel px-1 rounded">city</code>, <code class="bg-panel px-1 rounded">category</code>, <code class="bg-panel px-1 rounded">source</code>, <code class="bg-panel px-1 rounded">notes</code></p>
+                </div>
+                <div class="mt-3 text-xs text-muted bg-panel p-2 rounded font-mono">
+                    name,phone,address,city,category,source<br>
+                    "Joe's Market","555-1234","123 Main St","Springfield","Convenience","Yellow Pages"
+                </div>
+            </div>
+
+            <div class="p-4 bg-warn/10 border border-warn/20 rounded-lg">
+                <div class="text-sm font-medium text-warn mb-1">Note</div>
+                <div class="text-xs text-muted">
+                    Leads are imported with status "lead". Use the Leads page to convert them to active customers.
+                    Duplicates (same name + phone) will be skipped.
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit"
+                        class="flex-1 bg-brand hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition">
+                    Import Leads
+                </button>
+                <a href="{{ url_for('leads') }}"
+                   class="flex-1 bg-panel2 hover:bg-border text-white text-center font-semibold py-3 px-4 rounded-lg transition">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Current Stats -->
+    <div class="mt-6 bg-panel rounded-xl shadow-soft p-4">
+        <div class="text-sm font-medium mb-2">Current Leads</div>
+        <div class="text-center">
+            <div class="text-2xl font-semibold text-warn">{{ lead_count if lead_count is defined else '?' }}</div>
+            <div class="text-xs text-muted">Total Leads</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateFileName(input) {
+    const fileName = input.files[0]?.name || 'Select a CSV file';
+    document.getElementById('file-name').textContent = fileName;
+}
+</script>
+
+{% endblock %}

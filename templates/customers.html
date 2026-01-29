@@ -32,7 +32,7 @@
     </div>
 
     <!-- Search, Filter, and Sort -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
         <input
             type="text"
             name="query"
@@ -42,9 +42,22 @@
             hx-get="/customers"
             hx-trigger="keyup changed delay:500ms"
             hx-target="#table-body"
-            hx-include="[name='filter'], [name='sort']"
+            hx-include="[name='filter'], [name='sort'], [name='status']"
             hx-swap="innerHTML"
         />
+
+        <select
+            name="status"
+            class="bg-panel border border-border rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            hx-get="/customers"
+            hx-trigger="change"
+            hx-target="#table-body"
+            hx-include="[name='query'], [name='filter'], [name='sort']"
+            hx-swap="innerHTML">
+            <option value="active" {% if request.args.get('status', 'active') == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactive</option>
+            <option value="all" {% if request.args.get('status') == 'all' %}selected{% endif %}>All</option>
+        </select>
 
         <select
             name="filter"
@@ -52,9 +65,9 @@
             hx-get="/customers"
             hx-trigger="change"
             hx-target="#table-body"
-            hx-include="[name='query'], [name='sort']"
+            hx-include="[name='query'], [name='sort'], [name='status']"
             hx-swap="innerHTML">
-            <option value="">All Customers</option>
+            <option value="">All Visits</option>
             <option value="never" {% if request.args.get('filter') == 'never' %}selected{% endif %}>Never Visited</option>
             <option value="30" {% if request.args.get('filter') == '30' %}selected{% endif %}>30+ Days</option>
             <option value="60" {% if request.args.get('filter') == '60' %}selected{% endif %}>60+ Days</option>
@@ -66,7 +79,7 @@
             hx-get="/customers"
             hx-trigger="change"
             hx-target="#table-body"
-            hx-include="[name='query'], [name='filter']"
+            hx-include="[name='query'], [name='filter'], [name='status']"
             hx-swap="innerHTML">
             <option value="name" {% if request.args.get('sort', 'name') == 'name' %}selected{% endif %}>Sort: Name A-Z</option>
             <option value="city" {% if request.args.get('sort') == 'city' %}selected{% endif %}>Sort: City</option>

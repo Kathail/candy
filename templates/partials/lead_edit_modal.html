@@ -1,0 +1,154 @@
+<div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-semibold">Edit Lead</h3>
+    <button onclick="closeEditModal()" class="text-muted hover:text-white">
+        <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+            />
+        </svg>
+    </button>
+</div>
+
+<form
+    action="/leads/{{ lead.id }}/update"
+    method="POST"
+    class="space-y-4"
+>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <div>
+        <label class="block text-xs text-muted mb-1">Name *</label>
+        <input
+            type="text"
+            name="name"
+            required
+            value="{{ lead.name }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Business name"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Phone</label>
+        <input
+            type="tel"
+            name="phone"
+            value="{{ lead.phone or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="(555) 123-4567"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Address</label>
+        <input
+            type="text"
+            name="address"
+            value="{{ lead.address or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="123 Main St, City, State"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">City</label>
+        <input
+            type="text"
+            name="city"
+            value="{{ lead.city or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Springfield"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Notes</label>
+        <textarea
+            name="notes"
+            rows="4"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Any notes about this lead..."
+        >{{ lead.notes or '' }}</textarea>
+    </div>
+
+    <!-- Lead Stats -->
+    <div class="py-3 border-t border-border">
+        <div class="grid grid-cols-2 gap-4 text-xs">
+            <div>
+                <div class="text-muted">Status</div>
+                <div class="font-semibold mt-1">
+                    <span class="bg-warn/20 text-warn px-2 py-0.5 rounded text-xs">Lead</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Added</div>
+                <div class="font-semibold mt-1">
+                    {% if lead.created_at %}
+                    {{ lead.created_at.strftime('%b %d, %Y') }}
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+        <button
+            type="submit"
+            class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Save Changes
+        </button>
+        <button
+            type="button"
+            onclick="closeEditModal()"
+            class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Cancel
+        </button>
+    </div>
+</form>
+
+<!-- Convert to Customer -->
+<div class="pt-3 border-t border-good/20">
+    <form action="/leads/{{ lead.id }}/convert" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button
+            type="submit"
+            class="w-full bg-good/10 hover:bg-good/20 text-good text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Convert to Customer
+        </button>
+    </form>
+</div>
+
+<!-- Danger Zone -->
+<div class="pt-3 border-t border-danger/20">
+    <form id="delete-lead-form" action="/leads/{{ lead.id }}/delete" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button
+            type="button"
+            onclick="confirmDeleteLead('{{ lead.name }}')"
+            class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
+        >
+            Delete Lead
+        </button>
+    </form>
+</div>
+
+<script>
+async function confirmDeleteLead(name) {
+    const confirmed = await Confirm.delete(name);
+    if (confirmed) {
+        document.getElementById('delete-lead-form').submit();
+    }
+}
+</script>

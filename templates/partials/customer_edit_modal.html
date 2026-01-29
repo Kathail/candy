@@ -143,6 +143,33 @@
 
 </form>
 
+    <!-- Archive/Reactivate -->
+    {% if customer.status == 'active' %}
+    <div class="pt-3 border-t border-warn/20">
+        <form action="/customers/{{ customer.id }}/archive" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="submit"
+                class="w-full bg-warn/10 hover:bg-warn/20 text-warn text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Archive Customer
+            </button>
+        </form>
+    </div>
+    {% elif customer.status == 'inactive' %}
+    <div class="pt-3 border-t border-good/20">
+        <form action="/customers/{{ customer.id }}/reactivate" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="submit"
+                class="w-full bg-good/10 hover:bg-good/20 text-good text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Reactivate Customer
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
     <!-- Danger Zone - separate form for delete -->
     <div class="pt-3 border-t border-danger/20">
         <form id="delete-customer-form" action="/customers/{{ customer.id }}/delete" method="POST">

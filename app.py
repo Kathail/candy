@@ -82,6 +82,7 @@ class Customer(db.Model):
     balance = db.Column(db.Float, default=0.0, index=True)
     last_visit = db.Column(db.Date, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    status = db.Column(db.String(20), default='active', nullable=False, index=True)  # lead, active, inactive
 
 
 class RouteStop(db.Model):
@@ -293,6 +294,76 @@ def admin_import():
                            route_count=RouteStop.query.count())
 
 
+@app.route("/admin/import-leads", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_import_leads():
+    if request.method == "POST":
+        if "file" not in request.files:
+            return render_template("admin/import_leads.html", error="No file selected")
+
+        file = request.files["file"]
+        if file.filename == "":
+            return render_template("admin/import_leads.html", error="No file selected")
+
+        if not file.filename.endswith(".csv"):
+            return render_template("admin/import_leads.html", error="File must be a CSV")
+
+        try:
+            stream = io.StringIO(file.stream.read().decode("utf-8"))
+            reader = csv.DictReader(stream)
+
+            # Validate columns - name is required
+            if "name" not in (reader.fieldnames or []):
+                return render_template("admin/import_leads.html", error="CSV must have 'name' column")
+
+            imported = 0
+            skipped = 0
+
+            for row in reader:
+                name = row.get("name", "").strip()
+                if not name:
+                    skipped += 1
+                    continue
+
+                phone = row.get("phone", "").strip()
+
+                # Check for duplicate by name+phone
+                existing = Customer.query.filter_by(name=name, phone=phone if phone else None).first()
+                if existing:
+                    skipped += 1
+                    continue
+
+                lead = Customer(
+                    name=name,
+                    address=row.get("address", "").strip() or None,
+                    city=row.get("city", "").strip() or None,
+                    phone=phone or None,
+                    notes=row.get("notes", "").strip() or row.get("source", "").strip() or None,
+                    balance=0.0,
+                    status='lead',
+                    created_at=datetime.now(timezone.utc),
+                )
+                db.session.add(lead)
+                imported += 1
+
+                if imported % 50 == 0:
+                    db.session.commit()
+
+            db.session.commit()
+            logger.info(f"Admin {current_user.username} imported {imported} leads")
+            return render_template("admin/import_leads.html",
+                                   success=f"Imported {imported} leads ({skipped} skipped as duplicates)")
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Lead import error: {e}")
+            return render_template("admin/import_leads.html", error=f"Import failed: {str(e)}")
+
+    return render_template("admin/import_leads.html",
+                           lead_count=Customer.query.filter_by(status='lead').count())
+
+
 @app.route("/change-password", methods=["GET", "POST"])
 @login_required
 def change_password():
@@ -322,13 +393,13 @@ def change_password():
 @app.route("/")
 @login_required
 def dashboard():
-    total_customers = Customer.query.count()
+    total_customers = Customer.query.filter_by(status='active').count()
 
-    # Calculate balances efficiently using SQL aggregation
+    # Calculate balances efficiently using SQL aggregation (active customers only)
     balance_stats = db.session.query(
         db.func.sum(Customer.balance),
         db.func.count(Customer.id)
-    ).filter(Customer.balance > 0).first()
+    ).filter(Customer.balance > 0, Customer.status == 'active').first()
 
     total_owed = balance_stats[0] or 0
     urgent_customers = balance_stats[1] or 0
@@ -342,16 +413,16 @@ def dashboard():
     # Average balance
     avg_balance = total_owed / urgent_customers if urgent_customers > 0 else 0
 
-    # Customer health - efficient queries
-    never_visited = Customer.query.filter(Customer.last_visit == None).count()
+    # Customer health - efficient queries (active customers only)
+    never_visited = Customer.query.filter(Customer.last_visit == None, Customer.status == 'active').count()
     thirty_days_ago = today - timedelta(days=30)
     sixty_days_ago = today - timedelta(days=60)
 
     thirty_plus = Customer.query.filter(
-        Customer.last_visit < thirty_days_ago, Customer.last_visit >= sixty_days_ago
+        Customer.last_visit < thirty_days_ago, Customer.last_visit >= sixty_days_ago, Customer.status == 'active'
     ).count()
 
-    sixty_plus = Customer.query.filter(Customer.last_visit < sixty_days_ago).count()
+    sixty_plus = Customer.query.filter(Customer.last_visit < sixty_days_ago, Customer.status == 'active').count()
 
     # Today's route
     todays_stops = RouteStop.query.filter_by(route_date=today).all()
@@ -435,24 +506,31 @@ def uncomplete_stop(stop_id):
 def customers():
     query = request.args.get("query", "")
     filter_type = request.args.get("filter", "")
+    status_filter = request.args.get("status", "active")  # Default to active
     sort_by = request.args.get("sort", "name")
     page = int(request.args.get("page", 1))
     per_page = 50  # Show 50 customers per page
 
-    # Get stats efficiently using SQL aggregation
-    total_customers = Customer.query.count()
-    customers_with_balance = Customer.query.filter(Customer.balance > 0).count()
-    never_visited = Customer.query.filter(Customer.last_visit == None).count()
+    # Get stats efficiently using SQL aggregation (active customers only)
+    total_customers = Customer.query.filter_by(status='active').count()
+    customers_with_balance = Customer.query.filter(Customer.balance > 0, Customer.status == 'active').count()
+    never_visited = Customer.query.filter(Customer.last_visit == None, Customer.status == 'active').count()
 
     # Calculate needs_visit (30+ days)
     thirty_days_ago = datetime.now().date() - timedelta(days=30)
     needs_visit = Customer.query.filter(
         Customer.last_visit != None,
-        Customer.last_visit < thirty_days_ago
+        Customer.last_visit < thirty_days_ago,
+        Customer.status == 'active'
     ).count()
 
-    # Build filtered query
-    customers_query = Customer.query
+    # Build filtered query - apply status filter
+    if status_filter == "all":
+        customers_query = Customer.query
+    elif status_filter == "inactive":
+        customers_query = Customer.query.filter_by(status='inactive')
+    else:  # default to active
+        customers_query = Customer.query.filter_by(status='active')
 
     if query:
         customers_query = customers_query.filter(
@@ -608,6 +686,170 @@ def customer_delete(customer_id):
     return redirect(url_for("customers"))
 
 
+@app.route("/customers/<int:customer_id>/archive", methods=["POST"])
+@login_required
+def customer_archive(customer_id):
+    customer = Customer.query.get_or_404(customer_id)
+    customer.status = 'inactive'
+    db.session.commit()
+    logger.info(f"Customer archived: {customer.name}")
+    return redirect(url_for("customers"))
+
+
+@app.route("/customers/<int:customer_id>/reactivate", methods=["POST"])
+@login_required
+def customer_reactivate(customer_id):
+    customer = Customer.query.get_or_404(customer_id)
+    customer.status = 'active'
+    db.session.commit()
+    logger.info(f"Customer reactivated: {customer.name}")
+    return redirect(url_for("customers", status="inactive"))
+
+
+# Leads Page
+@app.route("/leads")
+@login_required
+def leads():
+    query = request.args.get("query", "")
+    sort_by = request.args.get("sort", "name")
+    page = int(request.args.get("page", 1))
+    per_page = 50
+
+    # Get stats
+    total_leads = Customer.query.filter_by(status='lead').count()
+
+    # Build query
+    leads_query = Customer.query.filter_by(status='lead')
+
+    if query:
+        leads_query = leads_query.filter(
+            db.or_(
+                Customer.name.ilike(f"%{query}%"),
+                Customer.city.ilike(f"%{query}%"),
+                Customer.notes.ilike(f"%{query}%"),
+            )
+        )
+
+    # Apply sorting
+    if sort_by == "name":
+        leads_query = leads_query.order_by(Customer.name)
+    elif sort_by == "city":
+        leads_query = leads_query.order_by(Customer.city, Customer.name)
+    elif sort_by == "newest":
+        leads_query = leads_query.order_by(Customer.created_at.desc())
+    elif sort_by == "oldest":
+        leads_query = leads_query.order_by(Customer.created_at)
+    else:
+        leads_query = leads_query.order_by(Customer.name)
+
+    # Paginate
+    pagination = leads_query.paginate(page=page, per_page=per_page, error_out=False)
+    leads_list = pagination.items
+
+    # Return partial for HTMX requests
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/leads_table_rows.html",
+            leads=leads_list,
+            now=datetime.now().date(),
+        )
+
+    return render_template(
+        "leads.html",
+        leads=leads_list,
+        pagination=pagination,
+        total_leads=total_leads,
+        now=datetime.now().date(),
+    )
+
+
+@app.route("/leads/add", methods=["POST"])
+@login_required
+def lead_add():
+    name = request.form.get("name")
+    phone = request.form.get("phone")
+    address = request.form.get("address")
+    city = request.form.get("city")
+    notes = request.form.get("notes")
+
+    if not name:
+        return "Name is required", 400
+
+    new_lead = Customer(
+        name=name,
+        phone=phone or None,
+        address=address or None,
+        city=city or None,
+        notes=notes or None,
+        balance=0.0,
+        status='lead',
+    )
+
+    db.session.add(new_lead)
+    db.session.commit()
+    logger.info(f"Lead added: {name}")
+
+    return redirect(url_for("leads"))
+
+
+@app.route("/leads/<int:lead_id>/edit")
+@login_required
+def lead_edit(lead_id):
+    lead = Customer.query.get_or_404(lead_id)
+    if lead.status != 'lead':
+        return "Not a lead", 400
+    return render_template(
+        "partials/lead_edit_modal.html",
+        lead=lead,
+    )
+
+
+@app.route("/leads/<int:lead_id>/update", methods=["POST"])
+@login_required
+def lead_update(lead_id):
+    lead = Customer.query.get_or_404(lead_id)
+
+    lead.name = request.form.get("name") or lead.name
+    lead.phone = request.form.get("phone") or None
+    lead.address = request.form.get("address") or None
+    lead.city = request.form.get("city") or None
+    lead.notes = request.form.get("notes") or None
+
+    db.session.commit()
+    logger.info(f"Lead updated: {lead.name}")
+
+    return redirect(url_for("leads"))
+
+
+@app.route("/leads/<int:lead_id>/convert", methods=["POST"])
+@login_required
+def lead_convert(lead_id):
+    lead = Customer.query.get_or_404(lead_id)
+    if lead.status != 'lead':
+        return "Not a lead", 400
+
+    lead.status = 'active'
+    db.session.commit()
+    logger.info(f"Lead converted to customer: {lead.name}")
+
+    return redirect(url_for("leads"))
+
+
+@app.route("/leads/<int:lead_id>/delete", methods=["POST"])
+@login_required
+def lead_delete(lead_id):
+    lead = Customer.query.get_or_404(lead_id)
+    if lead.status != 'lead':
+        return "Not a lead", 400
+
+    lead_name = lead.name
+    db.session.delete(lead)
+    db.session.commit()
+    logger.info(f"Lead deleted: {lead_name}")
+
+    return redirect(url_for("leads"))
+
+
 # Balances Page
 @app.route("/balances")
 @login_required
@@ -615,7 +857,7 @@ def balances():
     query = request.args.get("query", "")
     sort_type = request.args.get("sort", "balance_desc")
 
-    balances_query = Customer.query.filter(Customer.balance > 0)
+    balances_query = Customer.query.filter(Customer.balance > 0, Customer.status == 'active')
 
     if query:
         balances_query = balances_query.filter(
@@ -736,6 +978,7 @@ def planner():
 
     available_customers = (
         Customer.query.filter(
+            Customer.status == 'active',
             ~Customer.id.in_(scheduled_customer_ids) if scheduled_customer_ids else True
         )
         .order_by(Customer.name)
@@ -1107,8 +1350,8 @@ def analytics():
         start_date = None
         range_label = "All Time"
 
-    # Get counts and aggregations efficiently
-    total_customers = Customer.query.count()
+    # Get counts and aggregations efficiently (active customers)
+    total_customers = Customer.query.filter_by(status='active').count()
 
     # Use eager loading for payments to avoid N+1
     payments_query = Payment.query.options(db.joinedload(Payment.customer))
@@ -1130,10 +1373,10 @@ def analytics():
     outstanding_stats = db.session.query(
         db.func.sum(Customer.balance),
         db.func.count(Customer.id)
-    ).filter(Customer.balance > 0).first()
+    ).filter(Customer.balance > 0, Customer.status == 'active').first()
 
-    total_outstanding = outstanding_stats[0] or 0
-    outstanding_count = outstanding_stats[1] or 0
+    total_outstanding = outstanding_stats[0] or 0 if outstanding_stats else 0
+    outstanding_count = outstanding_stats[1] or 0 if outstanding_stats else 0
 
     total_stops = len(all_stops)
     avg_per_stop = (total_collected / total_stops) if total_stops > 0 else 0
@@ -1205,13 +1448,14 @@ def analytics():
         revenue_labels.append(date_str)
         revenue_data.append(float(revenue_by_date.get(date_str, 0)))
 
-    # Customer distribution - use efficient queries
+    # Customer distribution - use efficient queries (active customers)
     paid_up = Customer.query.filter(
         Customer.balance == 0,
-        Customer.last_visit != None
+        Customer.last_visit != None,
+        Customer.status == 'active'
     ).count()
     with_balance = outstanding_count
-    never_visited = Customer.query.filter(Customer.last_visit == None).count()
+    never_visited = Customer.query.filter(Customer.last_visit == None, Customer.status == 'active').count()
     customer_distribution = [paid_up, with_balance, never_visited]
 
     # Payment analysis
@@ -1644,6 +1888,13 @@ def init_db():
                 db.session.execute(text("ALTER TABLE payment ADD COLUMN previous_balance FLOAT"))
                 db.session.commit()
                 logger.info("Added previous_balance column to payment table")
+
+        # Migrate customer table - add status column
+        if "customer" in inspector.get_table_names() and not column_exists("customer", "status"):
+            db.session.execute(text("ALTER TABLE customer ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))
+            db.session.execute(text("UPDATE customer SET status = 'active' WHERE status IS NULL"))
+            db.session.commit()
+            logger.info("Added status column to customer table")
 
         # Create default admin user if no users exist
         if User.query.count() == 0:
