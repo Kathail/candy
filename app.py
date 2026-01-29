@@ -5,14 +5,10 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", "sqlite:///candy_route.db"
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,
-    "pool_recycle": 300,
-}
-
 db = SQLAlchemy(app)
 
 
@@ -154,12 +150,14 @@ def uncomplete_stop(stop_id):
 def customers():
     query = request.args.get("query", "")
     filter_type = request.args.get("filter", "")
+    sort_by = request.args.get("sort", "name")
+    page = int(request.args.get("page", 1))
+    per_page = 50  # Show 50 customers per page
 
     # Get all customers for stats
     all_customers = Customer.query.all()
     total_customers = len(all_customers)
-    customers_with_balance = sum(1 for c in all_customers if (c.balance or 0) > 0)
-
+    customers_with_balance = sum(1 for c in all_customers if c.balance > 0)
     never_visited = sum(1 for c in all_customers if c.last_visit is None)
 
     # Calculate needs_visit (30+ days)
@@ -189,11 +187,32 @@ def customers():
         sixty_days_ago = datetime.now().date() - timedelta(days=60)
         customers_query = customers_query.filter(Customer.last_visit < sixty_days_ago)
 
-    customers_list = customers_query.order_by(Customer.name).all()
+    # Apply sorting
+    if sort_by == "name":
+        customers_query = customers_query.order_by(Customer.name)
+    elif sort_by == "city":
+        customers_query = customers_query.order_by(Customer.city, Customer.name)
+    elif sort_by == "balance_high":
+        customers_query = customers_query.order_by(Customer.balance.desc())
+    elif sort_by == "balance_low":
+        customers_query = customers_query.order_by(Customer.balance)
+    elif sort_by == "last_visit_recent":
+        customers_query = customers_query.order_by(
+            Customer.last_visit.desc().nullslast()
+        )
+    elif sort_by == "last_visit_oldest":
+        customers_query = customers_query.order_by(Customer.last_visit.nullsfirst())
+    else:
+        customers_query = customers_query.order_by(Customer.name)
+
+    # Paginate
+    pagination = customers_query.paginate(page=page, per_page=per_page, error_out=False)
+    customers_list = pagination.items
 
     return render_template(
         "customers.html",
         customers=customers_list,
+        pagination=pagination,
         total_customers=total_customers,
         customers_with_balance=customers_with_balance,
         never_visited=never_visited,
@@ -339,6 +358,45 @@ def balance_details(balance_id):
     )
 
 
+@app.route("/balances/record-payment", methods=["POST"])
+def record_payment():
+    customer_id = request.form.get("customer_id")
+    amount_str = request.form.get("amount")
+    payment_date_str = request.form.get("payment_date")
+    notes = request.form.get("notes")
+
+    if not customer_id or not amount_str:
+        return "Missing required fields", 400
+
+    try:
+        customer = Customer.query.get_or_404(int(customer_id))
+        amount = float(amount_str)
+
+        # Parse payment date
+        if payment_date_str:
+            payment_date = datetime.strptime(payment_date_str, "%Y-%m-%d").date()
+        else:
+            payment_date = datetime.now().date()
+
+        # Create payment record
+        new_payment = Payment(
+            customer_id=customer.id,
+            amount=amount,
+            payment_date=payment_date,
+            notes=notes or None,
+        )
+
+        # Update customer balance
+        customer.balance = max(0, customer.balance - amount)
+
+        db.session.add(new_payment)
+        db.session.commit()
+
+        return redirect(url_for("balances"))
+    except Exception as e:
+        return f"Error recording payment: {str(e)}", 500
+
+
 # Planner Page
 @app.route("/planner")
 def planner():
@@ -405,7 +463,7 @@ def planner():
                 "id": c.id,
                 "name": c.name,
                 "city": c.city,
-                "balance": float(c.balance),
+                "balance": float(c.balance) if c.balance is not None else 0.0,
                 "last_visit": c.last_visit.strftime("%b %d") if c.last_visit else None,
                 "needs_visit": days_since > 30 if days_since else False,
             }
@@ -485,45 +543,27 @@ def add_stop_to_route():
         db.session.add(new_stop)
         db.session.commit()
 
-        # Return updated route builder HTML
-        stops = (
-            RouteStop.query.filter_by(route_date=route_date)
-            .order_by(RouteStop.sequence)
-            .all()
-        )
-        return render_template(
-            "partials/route_builder.html",
-            stops=stops,
-            route_date=route_date_str,
-            date_formatted=route_date.strftime("%b %d, %Y"),
-            day_name=route_date.strftime("%A"),
+        # Return JSON for new planner
+        return jsonify(
+            {
+                "success": True,
+                "stop_id": new_stop.id,
+                "customer_name": customer.name,
+                "customer_city": customer.city,
+            }
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/planner/stop/<int:stop_id>/remove", methods=["POST"])
-def remove_stop_from_route():
+def remove_stop_from_route(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
-    route_date = stop.route_date
-    route_date_str = route_date.strftime("%Y-%m-%d")
 
     db.session.delete(stop)
     db.session.commit()
 
-    # Return updated route builder HTML
-    stops = (
-        RouteStop.query.filter_by(route_date=route_date)
-        .order_by(RouteStop.sequence)
-        .all()
-    )
-    return render_template(
-        "partials/route_builder.html",
-        stops=stops,
-        route_date=route_date_str,
-        date_formatted=route_date.strftime("%b %d, %Y"),
-        day_name=route_date.strftime("%A"),
-    )
+    return jsonify({"success": True})
 
 
 @app.route("/planner/route/<route_date>/clear", methods=["POST"])
@@ -533,15 +573,103 @@ def clear_route(route_date):
         RouteStop.query.filter_by(route_date=date_obj).delete()
         db.session.commit()
 
-        return render_template(
-            "partials/route_builder.html",
-            stops=[],
-            route_date=route_date,
-            date_formatted=date_obj.strftime("%b %d, %Y"),
-            day_name=date_obj.strftime("%A"),
-        )
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/customer/<int:customer_id>/details")
+def get_customer_details(customer_id):
+    """Get detailed customer information for modal"""
+    customer = Customer.query.get_or_404(customer_id)
+
+    # Get payment history
+    payments = (
+        Payment.query.filter_by(customer_id=customer_id)
+        .order_by(Payment.payment_date.desc())
+        .limit(10)
+        .all()
+    )
+
+    # Get visit history
+    visits = (
+        RouteStop.query.filter_by(customer_id=customer_id)
+        .order_by(RouteStop.route_date.desc())
+        .limit(10)
+        .all()
+    )
+
+    return jsonify(
+        {
+            "customer": {
+                "id": customer.id,
+                "name": customer.name,
+                "address": customer.address,
+                "city": customer.city,
+                "phone": customer.phone,
+                "notes": customer.notes,
+                "balance": float(customer.balance),
+                "last_visit": customer.last_visit.strftime("%Y-%m-%d")
+                if customer.last_visit
+                else None,
+                "created_at": customer.created_at.strftime("%Y-%m-%d")
+                if customer.created_at
+                else None,
+            },
+            "payments": [
+                {
+                    "id": p.id,
+                    "amount": float(p.amount),
+                    "date": p.payment_date.strftime("%Y-%m-%d"),
+                    "notes": p.notes,
+                }
+                for p in payments
+            ],
+            "visits": [
+                {
+                    "id": v.id,
+                    "date": v.route_date.strftime("%Y-%m-%d"),
+                    "completed": v.completed,
+                }
+                for v in visits
+            ],
+        }
+    )
+
+
+@app.route("/planner/all-stops")
+def get_all_stops():
+    """Return all stops grouped by date for the calendar"""
+    # Get stops for the next 60 days
+    today = datetime.now().date()
+    future_date = today + timedelta(days=60)
+
+    stops = (
+        RouteStop.query.filter(
+            RouteStop.route_date >= today, RouteStop.route_date <= future_date
+        )
+        .order_by(RouteStop.sequence)
+        .all()
+    )
+
+    # Group by date
+    stops_by_date = {}
+    for stop in stops:
+        date_str = stop.route_date.strftime("%Y-%m-%d")
+        if date_str not in stops_by_date:
+            stops_by_date[date_str] = []
+
+        stops_by_date[date_str].append(
+            {
+                "id": stop.id,
+                "customer_id": stop.customer_id,
+                "customer_name": stop.customer.name,
+                "customer_city": stop.customer.city,
+                "sequence": stop.sequence,
+            }
+        )
+
+    return jsonify({"stops": stops_by_date})
 
 
 @app.route("/planner/route/<route_date>/optimize", methods=["POST"])
@@ -586,20 +714,25 @@ def optimize_route(route_date):
 
         db.session.commit()
 
-        # Reload stops in new order
+        # Reload stops in new order and return as JSON
         stops = (
             RouteStop.query.filter_by(route_date=date_obj)
             .order_by(RouteStop.sequence)
             .all()
         )
 
-        return render_template(
-            "partials/route_builder.html",
-            stops=stops,
-            route_date=route_date,
-            date_formatted=date_obj.strftime("%b %d, %Y"),
-            day_name=date_obj.strftime("%A"),
-        )
+        stops_data = [
+            {
+                "id": stop.id,
+                "customer_id": stop.customer_id,
+                "customer_name": stop.customer.name,
+                "customer_city": stop.customer.city,
+                "sequence": stop.sequence,
+            }
+            for stop in stops
+        ]
+
+        return jsonify({"success": True, "stops": stops_data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -764,6 +897,25 @@ def analytics():
 def create_tables():
     if not hasattr(app, "db_initialized"):
         db.create_all()
+
+        # Fix any None balances
+        customers_with_none_balance = Customer.query.filter(
+            Customer.balance == None
+        ).all()
+        for customer in customers_with_none_balance:
+            customer.balance = 0.0
+        if customers_with_none_balance:
+            db.session.commit()
+
+        # Fix any None created_at dates
+        customers_with_none_created = Customer.query.filter(
+            Customer.created_at == None
+        ).all()
+        for customer in customers_with_none_created:
+            customer.created_at = datetime.utcnow()
+        if customers_with_none_created:
+            db.session.commit()
+
         app.db_initialized = True
 
 

@@ -8,8 +8,11 @@
         <div>
             <h1 class="text-2xl font-semibold">Customers</h1>
             <p class="text-xs text-muted mt-1">
-                <span id="customer-count">{{ customers|length }}</span> customer{% if customers|length != 1 %}s{% endif %}
-                {% if request.args.get('filter') or request.args.get('query') %}(filtered){% else %}total{% endif %}
+                {% if request.args.get('filter') or request.args.get('query') %}
+                    Showing {{ pagination.total }} of {{ total_customers }} customers
+                {% else %}
+                    {{ total_customers }} total customers
+                {% endif %}
             </p>
         </div>
         <button
@@ -19,8 +22,8 @@
         </button>
     </div>
 
-    <!-- Search and Filter -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <!-- Search, Filter, and Sort -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
         <input
             type="text"
             name="query"
@@ -30,7 +33,7 @@
             hx-get="/customers"
             hx-trigger="keyup changed delay:500ms"
             hx-target="#table-body"
-            hx-include="[name='filter']"
+            hx-include="[name='filter'], [name='sort']"
             hx-swap="innerHTML"
         />
 
@@ -40,12 +43,28 @@
             hx-get="/customers"
             hx-trigger="change"
             hx-target="#table-body"
-            hx-include="[name='query']"
+            hx-include="[name='query'], [name='sort']"
             hx-swap="innerHTML">
             <option value="">All Customers</option>
             <option value="never" {% if request.args.get('filter') == 'never' %}selected{% endif %}>Never Visited</option>
             <option value="30" {% if request.args.get('filter') == '30' %}selected{% endif %}>30+ Days</option>
             <option value="60" {% if request.args.get('filter') == '60' %}selected{% endif %}>60+ Days</option>
+        </select>
+
+        <select
+            name="sort"
+            class="bg-panel border border-border rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            hx-get="/customers"
+            hx-trigger="change"
+            hx-target="#table-body"
+            hx-include="[name='query'], [name='filter']"
+            hx-swap="innerHTML">
+            <option value="name" {% if request.args.get('sort', 'name') == 'name' %}selected{% endif %}>Sort: Name A-Z</option>
+            <option value="city" {% if request.args.get('sort') == 'city' %}selected{% endif %}>Sort: City</option>
+            <option value="balance_high" {% if request.args.get('sort') == 'balance_high' %}selected{% endif %}>Sort: Balance (High)</option>
+            <option value="balance_low" {% if request.args.get('sort') == 'balance_low' %}selected{% endif %}>Sort: Balance (Low)</option>
+            <option value="last_visit_recent" {% if request.args.get('sort') == 'last_visit_recent' %}selected{% endif %}>Sort: Recent Visit</option>
+            <option value="last_visit_oldest" {% if request.args.get('sort') == 'last_visit_oldest' %}selected{% endif %}>Sort: Oldest Visit</option>
         </select>
     </div>
 
@@ -77,6 +96,7 @@
                     <th class="text-left px-4 py-3 font-semibold">Name</th>
                     <th class="text-left px-4 py-3 font-semibold">Phone</th>
                     <th class="text-left px-4 py-3 font-semibold">Address</th>
+                    <th class="text-left px-4 py-3 font-semibold">Notes</th>
                     <th class="text-left px-4 py-3 font-semibold">Last Visited</th>
                     <th class="text-right px-4 py-3 font-semibold">Balance</th>
                 </tr>
@@ -117,6 +137,16 @@
                         </td>
 
                         <td class="px-4 py-3">
+                            {% if c.notes %}
+                            <div class="text-xs text-muted max-w-xs truncate" title="{{ c.notes }}">
+                                {{ c.notes[:40] }}{% if c.notes|length > 40 %}...{% endif %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted text-xs">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-4 py-3">
                             {% if c.last_visit %}
                                 {{ c.last_visit.strftime('%b %d, %Y') }}
                                 {% set days_ago = (now - c.last_visit).days %}
@@ -139,7 +169,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="5" class="p-12 text-center">
+                        <td colspan="6" class="p-12 text-center">
                             <div class="text-5xl mb-4">🔍</div>
                             <div class="text-lg font-semibold mb-2">No customers found</div>
                             <div class="text-sm text-muted">
@@ -158,6 +188,61 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="flex items-center justify-between mt-6">
+        <div class="text-sm text-muted">
+            Showing {{ ((pagination.page - 1) * 50) + 1 }} - {{ [pagination.page * 50, pagination.total]|min }} of {{ pagination.total }}
+        </div>
+
+        <div class="flex gap-2">
+            <!-- Previous -->
+            {% if pagination.has_prev %}
+            <a href="?page={{ pagination.prev_num }}&query={{ request.args.get('query', '') }}&filter={{ request.args.get('filter', '') }}&sort={{ request.args.get('sort', 'name') }}"
+               class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                ← Previous
+            </a>
+            {% else %}
+            <span class="px-3 py-2 bg-panel2 text-muted rounded text-sm cursor-not-allowed">
+                ← Previous
+            </span>
+            {% endif %}
+
+            <!-- Page numbers -->
+            <div class="flex gap-1">
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <span class="px-3 py-2 bg-brand text-white rounded text-sm font-semibold">
+                            {{ p }}
+                        </span>
+                        {% else %}
+                        <a href="?page={{ p }}&query={{ request.args.get('query', '') }}&filter={{ request.args.get('filter', '') }}&sort={{ request.args.get('sort', 'name') }}"
+                           class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                            {{ p }}
+                        </a>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-3 py-2 text-muted">...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Next -->
+            {% if pagination.has_next %}
+            <a href="?page={{ pagination.next_num }}&query={{ request.args.get('query', '') }}&filter={{ request.args.get('filter', '') }}&sort={{ request.args.get('sort', 'name') }}"
+               class="px-3 py-2 bg-panel2 hover:bg-border rounded text-sm transition">
+                Next →
+            </a>
+            {% else %}
+            <span class="px-3 py-2 bg-panel2 text-muted rounded text-sm cursor-not-allowed">
+                Next →
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Add Customer Modal -->
     <div x-show="showAddModal"
