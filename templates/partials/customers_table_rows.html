@@ -1,0 +1,75 @@
+{% if customers %}
+    {% for c in customers %}
+    <tr class="border-t border-border hover:bg-panel2 transition">
+        <td class="px-4 py-3">
+            <button
+                onclick="openEditModal({{ c.id }})"
+                class="font-semibold text-brand hover:underline text-left">
+                {{ c.name }}
+            </button>
+            <div class="text-xs text-muted mt-0.5">{{ c.city }}</div>
+        </td>
+
+        <td class="px-4 py-3">
+            {% if c.phone %}
+            <a href="tel:{{ c.phone }}" class="text-brand hover:underline">
+                {{ c.phone }}
+            </a>
+            {% else %}
+            <span class="text-muted text-xs">-</span>
+            {% endif %}
+        </td>
+
+        <td class="px-4 py-3">
+            {% if c.address %}
+            <a href="https://maps.google.com/?q={{ c.address|urlencode }}"
+               target="_blank"
+               class="text-brand hover:underline">
+                {{ c.address[:35] }}{% if c.address|length > 35 %}...{% endif %}
+            </a>
+            {% else %}
+            <span class="text-muted text-xs">-</span>
+            {% endif %}
+        </td>
+
+        <td class="px-4 py-3">
+            {% if c.notes %}
+            <div class="text-xs text-muted max-w-xs truncate" title="{{ c.notes }}">
+                {{ c.notes[:40] }}{% if c.notes|length > 40 %}...{% endif %}
+            </div>
+            {% else %}
+            <span class="text-muted text-xs">-</span>
+            {% endif %}
+        </td>
+
+        <td class="px-4 py-3">
+            {% if c.last_visit %}
+                {{ c.last_visit.strftime('%b %d, %Y') }}
+                {% set days_ago = (now - c.last_visit).days %}
+                {% if days_ago > 60 %}
+                <span class="ml-1 text-xs bg-danger/20 text-danger px-1.5 py-0.5 rounded">{{ days_ago }}d</span>
+                {% elif days_ago > 30 %}
+                <span class="ml-1 text-xs bg-warn/20 text-warn px-1.5 py-0.5 rounded">{{ days_ago }}d</span>
+                {% endif %}
+            {% else %}
+                <span class="text-danger font-semibold">Never</span>
+            {% endif %}
+        </td>
+
+        <td class="px-4 py-3 text-right">
+            <span class="font-semibold {% if c.balance > 0 %}text-warn{% else %}text-good{% endif %}">
+                ${{ "%.2f"|format(c.balance) }}
+            </span>
+        </td>
+    </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="6" class="p-12 text-center">
+            <div class="text-5xl mb-4">🔍</div>
+            <div class="text-lg font-semibold mb-2">No customers found</div>
+            <div class="text-sm text-muted">Try adjusting your search or filter</div>
+            <a href="/customers" class="inline-block text-brand hover:underline text-xs mt-3">Clear filters</a>
+        </td>
+    </tr>
+{% endif %}

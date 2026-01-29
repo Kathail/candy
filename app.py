@@ -300,6 +300,14 @@ def customers():
     pagination = customers_query.paginate(page=page, per_page=per_page, error_out=False)
     customers_list = pagination.items
 
+    # Return partial for HTMX requests (search/filter/sort)
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/customers_table_rows.html",
+            customers=customers_list,
+            now=datetime.now().date(),
+        )
+
     return render_template(
         "customers.html",
         customers=customers_list,
