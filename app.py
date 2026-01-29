@@ -1611,19 +1611,39 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # Run schema migrations for SQLite (add missing columns)
-        if "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]:
-            from sqlalchemy import text, inspect
-            inspector = inspect(db.engine)
+        # Run schema migrations (add missing columns)
+        from sqlalchemy import text, inspect
+        inspector = inspect(db.engine)
+        is_postgres = "postgresql" in app.config["SQLALCHEMY_DATABASE_URI"]
 
-            # Check if user table exists and has role column
-            if "user" in inspector.get_table_names():
-                columns = [col["name"] for col in inspector.get_columns("user")]
-                if "role" not in columns:
-                    db.session.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'sales'"))
-                    db.session.execute(text("UPDATE user SET role='admin' WHERE username='admin'"))
-                    db.session.commit()
-                    logger.info("Added role column to user table")
+        # Helper to check if column exists
+        def column_exists(table_name, column_name):
+            if table_name in inspector.get_table_names():
+                columns = [col["name"] for col in inspector.get_columns(table_name)]
+                return column_name in columns
+            return False
+
+        # Migrate user table - add role column
+        if "user" in inspector.get_table_names() and not column_exists("user", "role"):
+            if is_postgres:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN role VARCHAR(20) DEFAULT \'sales\''))
+            else:
+                db.session.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'sales'"))
+            db.session.execute(text("UPDATE \"user\" SET role='admin' WHERE username='admin'"))
+            db.session.commit()
+            logger.info("Added role column to user table")
+
+        # Migrate payment table - add receipt_number and previous_balance columns
+        if "payment" in inspector.get_table_names():
+            if not column_exists("payment", "receipt_number"):
+                db.session.execute(text("ALTER TABLE payment ADD COLUMN receipt_number VARCHAR(20)"))
+                db.session.commit()
+                logger.info("Added receipt_number column to payment table")
+
+            if not column_exists("payment", "previous_balance"):
+                db.session.execute(text("ALTER TABLE payment ADD COLUMN previous_balance FLOAT"))
+                db.session.commit()
+                logger.info("Added previous_balance column to payment table")
 
         # Create default admin user if no users exist
         if User.query.count() == 0:
