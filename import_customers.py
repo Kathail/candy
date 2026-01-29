@@ -1,28 +1,47 @@
 import csv
-import sqlite3
+import os
 
-DB_PATH = "instance/candy_route.db"
+from app import (
+    Customer,  # make sure this matches your model name
+    app,
+    db,
+)
 
-conn = sqlite3.connect(DB_PATH)
-cur = conn.cursor()
+CSV_PATH = "customers.csv"
 
-with open("customers.csv", newline="", encoding="utf-8") as f:
-    reader = csv.DictReader(f)
 
-    for row in reader:
-        cur.execute(
-            """
-            INSERT INTO customer (name, address, phone)
-            VALUES (?, ?, ?)
-            """,
-            (
-                row["Name"].strip(),
-                row["Address"].strip(),
-                row["Phone"].strip(),
-            ),
-        )
+def run_import():
+    if not os.environ.get("DATABASE_URL"):
+        raise RuntimeError("DATABASE_URL is not set. Refusing to import.")
 
-conn.commit()
-conn.close()
+    with app.app_context():
+        created = 0
 
-print("Import complete.")
+        with open(CSV_PATH, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+
+            for row in reader:
+                name = row.get("Name", "").strip()
+                address = row.get("Address", "").strip()
+                phone = row.get("Phone", "").strip()
+
+                if not name:
+                    continue
+
+                customer = Customer(
+                    name=name,
+                    address=address,
+                    phone=phone,
+                )
+
+                db.session.add(customer)
+                created += 1
+
+        db.session.commit()
+
+        print(f"Imported {created} customers.")
+        print("Total customers in DB:", Customer.query.count())
+
+
+if __name__ == "__main__":
+    run_import()
