@@ -252,14 +252,13 @@
         currentBalance = balance;
         document.getElementById('payment-customer-id').value = customerId;
         document.getElementById('payment-customer-name').textContent = customerName;
-        document.getElementById('payment-current-balance').textContent = '$' + balance.toFixed(2);
+        document.getElementById('payment-current-balance').textContent = Utils.formatCurrency(balance);
         document.getElementById('payment-amount').value = balance.toFixed(2);
-        document.getElementById('payment-modal-wrapper').style.display = 'block';
+        Modal.open('payment-modal-wrapper');
     }
 
     function closePaymentModal() {
-        document.getElementById('payment-modal-wrapper').style.display = 'none';
-        document.getElementById('payment-form').reset();
+        Modal.close('payment-modal-wrapper');
     }
 
     function setPaymentAmount(type) {

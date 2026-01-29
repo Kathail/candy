@@ -260,29 +260,11 @@
 
 <script>
     function openEditModal(customerId) {
-        const modal = document.getElementById('edit-modal-wrapper');
-        modal.style.display = 'block';
-
-        fetch(`/customers/${customerId}/edit`)
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.text();
-            })
-            .then(html => {
-                // Use a safer approach - create a temporary container and set innerHTML there
-                // This is acceptable since the HTML comes from our own server with Jinja escaping
-                const container = document.getElementById('edit-customer-modal');
-                container.innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                modal.style.display = 'none';
-                alert('Failed to load customer details');
-            });
+        Modal.loadContent('edit-modal-wrapper', 'edit-customer-modal', `/customers/${customerId}/edit`);
     }
 
     function closeEditModal() {
-        document.getElementById('edit-modal-wrapper').style.display = 'none';
+        Modal.close('edit-modal-wrapper');
     }
 
     function customerPage() {
