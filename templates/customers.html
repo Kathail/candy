@@ -99,9 +99,9 @@
 
     <!-- Customer Table -->
     <div class="bg-panel rounded-xl shadow-soft overflow-hidden">
-        <div class="max-h-[60vh] overflow-auto">
+        <div class="scrollable-table">
             <table class="w-full text-sm">
-                <thead class="bg-panel2 text-muted sticky top-0 z-10">
+                <thead class="bg-panel2 text-muted">
                     <tr>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Name</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Phone</th>
@@ -256,23 +256,6 @@
 
 <style>
     [x-cloak] { display: none !important; }
-
-    /* Custom scrollbar for table */
-    .max-h-\[60vh\]::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    .max-h-\[60vh\]::-webkit-scrollbar-track {
-        background: #1e293b;
-        border-radius: 4px;
-    }
-    .max-h-\[60vh\]::-webkit-scrollbar-thumb {
-        background: #2c3a4f;
-        border-radius: 4px;
-    }
-    .max-h-\[60vh\]::-webkit-scrollbar-thumb:hover {
-        background: #3b4a5f;
-    }
 </style>
 
 <script>

@@ -32,3 +32,35 @@ body {
 *::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.35);
 }
+
+/* Scrollable containers for lists and tables */
+.scrollable-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.scrollable-container-sm {
+    max-height: 40vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.scrollable-container-lg {
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Table-specific scrollable wrapper */
+.scrollable-table {
+    max-height: 60vh;
+    overflow: auto;
+}
+
+.scrollable-table table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--panel2);
+}
