@@ -1,10 +1,14 @@
+import csv
+import io
 import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
+from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +29,30 @@ app.config["WTF_CSRF_TIME_LIMIT"] = None  # CSRF tokens don't expire
 
 db = SQLAlchemy(app)
 csrf = CSRFProtect(app)
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+login_manager.login_message = "Please log in to access this page."
+login_manager.login_message_category = "info"
+
+
+# User model for authentication
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 
 # Models with indexes for better query performance
@@ -57,11 +85,48 @@ class Payment(db.Model):
     payment_date = db.Column(db.Date, nullable=False, index=True)
     acknowledged = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
+    receipt_number = db.Column(db.String(20), unique=True, index=True)
+    previous_balance = db.Column(db.Float)
     customer = db.relationship("Customer", backref="payments")
+
+
+# Service Worker route (must be served from root)
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("sw.js")
+
+
+# Authentication Routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user, remember=request.form.get("remember"))
+            next_page = request.args.get("next")
+            return redirect(next_page or url_for("dashboard"))
+
+        return render_template("login.html", error="Invalid username or password")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
 
 
 # Dashboard Route
 @app.route("/")
+@login_required
 def dashboard():
     total_customers = Customer.query.count()
 
@@ -120,6 +185,7 @@ def dashboard():
 
 # Route Page
 @app.route("/route")
+@login_required
 def route():
     today = datetime.now().date()
     stops = (
@@ -140,6 +206,7 @@ def route():
 
 
 @app.route("/route/stop/<int:stop_id>")
+@login_required
 def route_stop_details(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
     return render_template(
@@ -149,6 +216,7 @@ def route_stop_details(stop_id):
 
 
 @app.route("/route/stop/<int:stop_id>/complete", methods=["POST"])
+@login_required
 def complete_stop(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
     stop.completed = True
@@ -159,6 +227,7 @@ def complete_stop(stop_id):
 
 
 @app.route("/route/stop/<int:stop_id>/uncomplete", methods=["POST"])
+@login_required
 def uncomplete_stop(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
     stop.completed = False
@@ -168,6 +237,7 @@ def uncomplete_stop(stop_id):
 
 # Customers Page
 @app.route("/customers")
+@login_required
 def customers():
     query = request.args.get("query", "")
     filter_type = request.args.get("filter", "")
@@ -243,6 +313,7 @@ def customers():
 
 
 @app.route("/customers/<int:customer_id>")
+@login_required
 def customer_details(customer_id):
     customer = Customer.query.get_or_404(customer_id)
     return render_template(
@@ -253,6 +324,7 @@ def customer_details(customer_id):
 
 
 @app.route("/customers/<int:customer_id>/edit")
+@login_required
 def customer_edit(customer_id):
     customer = Customer.query.get_or_404(customer_id)
     return render_template(
@@ -262,6 +334,7 @@ def customer_edit(customer_id):
 
 
 @app.route("/customers/add", methods=["POST"])
+@login_required
 def customer_add():
     name = request.form.get("name")
     phone = request.form.get("phone")
@@ -289,6 +362,7 @@ def customer_add():
 
 
 @app.route("/customers/<int:customer_id>/update", methods=["POST"])
+@login_required
 def customer_update(customer_id):
     customer = Customer.query.get_or_404(customer_id)
 
@@ -316,6 +390,7 @@ def customer_update(customer_id):
 
 
 @app.route("/customers/<int:customer_id>/delete", methods=["POST"])
+@login_required
 def customer_delete(customer_id):
     customer = Customer.query.get_or_404(customer_id)
     customer_name = customer.name
@@ -333,6 +408,7 @@ def customer_delete(customer_id):
 
 # Balances Page
 @app.route("/balances")
+@login_required
 def balances():
     query = request.args.get("query", "")
     sort_type = request.args.get("sort", "balance_desc")
@@ -377,6 +453,7 @@ def balances():
 
 
 @app.route("/balances/<int:balance_id>")
+@login_required
 def balance_details(balance_id):
     customer = Customer.query.get_or_404(balance_id)
     return render_template(
@@ -387,6 +464,7 @@ def balance_details(balance_id):
 
 
 @app.route("/balances/record-payment", methods=["POST"])
+@login_required
 def record_payment():
     customer_id = request.form.get("customer_id")
     amount_str = request.form.get("amount")
@@ -409,12 +487,24 @@ def record_payment():
         else:
             payment_date = datetime.now().date()
 
-        # Create payment record
+        # Store previous balance before updating
+        previous_balance = customer.balance
+
+        # Generate receipt number (format: RCP-YYYYMMDD-XXXX)
+        today_str = datetime.now().strftime("%Y%m%d")
+        today_count = Payment.query.filter(
+            Payment.receipt_number.like(f"RCP-{today_str}-%")
+        ).count()
+        receipt_number = f"RCP-{today_str}-{today_count + 1:04d}"
+
+        # Create payment record with receipt info
         new_payment = Payment(
             customer_id=customer.id,
             amount=amount,
             payment_date=payment_date,
             notes=notes or None,
+            receipt_number=receipt_number,
+            previous_balance=previous_balance,
         )
 
         # Update customer balance
@@ -422,7 +512,7 @@ def record_payment():
 
         db.session.add(new_payment)
         db.session.commit()
-        logger.info(f"Payment recorded: ${amount} from {customer.name}")
+        logger.info(f"Payment recorded: ${amount} from {customer.name} (Receipt: {receipt_number})")
 
         return redirect(url_for("balances"))
     except ValueError:
@@ -434,6 +524,7 @@ def record_payment():
 
 # Planner Page
 @app.route("/planner")
+@login_required
 def planner():
     today = datetime.now().date()
 
@@ -518,6 +609,7 @@ def planner():
 
 
 @app.route("/planner/date/<date_str>")
+@login_required
 def planner_date_details(date_str):
     try:
         route_date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -540,6 +632,7 @@ def planner_date_details(date_str):
 
 
 @app.route("/planner/route/<int:route_id>")
+@login_required
 def planner_route_details(route_id):
     return render_template(
         "partials/planner_route_details.html",
@@ -549,6 +642,7 @@ def planner_route_details(route_id):
 
 @csrf.exempt  # JSON API endpoint
 @app.route("/planner/add-stop", methods=["POST"])
+@login_required
 def add_stop_to_route():
     customer_id = request.form.get("customer_id")
     route_date_str = request.form.get("route_date")
@@ -595,6 +689,7 @@ def add_stop_to_route():
 
 @csrf.exempt  # JSON API endpoint
 @app.route("/planner/stop/<int:stop_id>/remove", methods=["POST"])
+@login_required
 def remove_stop_from_route(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
 
@@ -606,6 +701,7 @@ def remove_stop_from_route(stop_id):
 
 @csrf.exempt  # JSON API endpoint
 @app.route("/planner/route/<route_date>/clear", methods=["POST"])
+@login_required
 def clear_route(route_date):
     try:
         date_obj = datetime.strptime(route_date, "%Y-%m-%d").date()
@@ -619,6 +715,7 @@ def clear_route(route_date):
 
 
 @app.route("/customer/<int:customer_id>/details")
+@login_required
 def get_customer_details(customer_id):
     """Get detailed customer information for modal"""
     customer = Customer.query.get_or_404(customer_id)
@@ -678,6 +775,7 @@ def get_customer_details(customer_id):
 
 
 @app.route("/planner/all-stops")
+@login_required
 def get_all_stops():
     """Return all stops grouped by date for the calendar"""
     # Get stops for the next 60 days
@@ -714,6 +812,7 @@ def get_all_stops():
 
 @csrf.exempt  # JSON API endpoint
 @app.route("/planner/route/<route_date>/optimize", methods=["POST"])
+@login_required
 def optimize_route(route_date):
     """Optimize route using nearest-neighbor algorithm grouped by city"""
     try:
@@ -781,6 +880,7 @@ def optimize_route(route_date):
 
 # Analytics Page
 @app.route("/analytics")
+@login_required
 def analytics():
     import json
     from collections import defaultdict
@@ -946,11 +1046,307 @@ def analytics():
     )
 
 
+# CSV Export Routes
+@app.route("/export/customers")
+@login_required
+def export_customers():
+    """Export all customers as CSV"""
+    customers_list = Customer.query.order_by(Customer.name).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "ID", "Name", "City", "Address", "Phone", "Notes",
+        "Balance", "Last Visit", "Created At"
+    ])
+
+    # Data rows
+    for c in customers_list:
+        writer.writerow([
+            c.id,
+            c.name,
+            c.city or "",
+            c.address or "",
+            c.phone or "",
+            c.notes or "",
+            f"{c.balance:.2f}",
+            c.last_visit.strftime("%Y-%m-%d") if c.last_visit else "",
+            c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else ""
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=customers_{datetime.now().strftime('%Y%m%d')}.csv"
+        }
+    )
+
+
+@app.route("/export/payments")
+@login_required
+def export_payments():
+    """Export all payments as CSV"""
+    payments_list = Payment.query.options(
+        db.joinedload(Payment.customer)
+    ).order_by(Payment.payment_date.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "ID", "Receipt Number", "Customer Name", "Customer City",
+        "Amount", "Previous Balance", "Payment Date", "Notes"
+    ])
+
+    # Data rows
+    for p in payments_list:
+        writer.writerow([
+            p.id,
+            p.receipt_number or "",
+            p.customer.name if p.customer else "",
+            p.customer.city if p.customer else "",
+            f"{p.amount:.2f}",
+            f"{p.previous_balance:.2f}" if p.previous_balance is not None else "",
+            p.payment_date.strftime("%Y-%m-%d"),
+            p.notes or ""
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=payments_{datetime.now().strftime('%Y%m%d')}.csv"
+        }
+    )
+
+
+@app.route("/export/routes")
+@login_required
+def export_routes():
+    """Export route history as CSV with optional date filter"""
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    query = RouteStop.query.options(
+        db.joinedload(RouteStop.customer)
+    ).order_by(RouteStop.route_date.desc(), RouteStop.sequence)
+
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(RouteStop.route_date >= start)
+        except ValueError:
+            pass
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(RouteStop.route_date <= end)
+        except ValueError:
+            pass
+
+    stops_list = query.all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "ID", "Route Date", "Sequence", "Customer Name", "Customer City",
+        "Completed", "Notes"
+    ])
+
+    # Data rows
+    for s in stops_list:
+        writer.writerow([
+            s.id,
+            s.route_date.strftime("%Y-%m-%d"),
+            s.sequence,
+            s.customer.name if s.customer else "",
+            s.customer.city if s.customer else "",
+            "Yes" if s.completed else "No",
+            s.notes or ""
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=routes_{datetime.now().strftime('%Y%m%d')}.csv"
+        }
+    )
+
+
+# PDF Receipt Generation
+def generate_receipt_pdf(payment):
+    """Generate a PDF receipt for a payment"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=20,
+        alignment=1  # Center
+    )
+    header_style = ParagraphStyle(
+        'Header',
+        parent=styles['Normal'],
+        fontSize=12,
+        alignment=1  # Center
+    )
+
+    # Header
+    elements.append(Paragraph("Candy Route Planner", title_style))
+    elements.append(Paragraph("Payment Receipt", header_style))
+    elements.append(Spacer(1, 30))
+
+    # Receipt details table
+    new_balance = (payment.previous_balance or 0) - payment.amount
+    if new_balance < 0:
+        new_balance = 0
+
+    receipt_data = [
+        ["Receipt Number:", payment.receipt_number or "N/A"],
+        ["Date:", payment.payment_date.strftime("%B %d, %Y")],
+        ["", ""],
+        ["Customer:", payment.customer.name if payment.customer else "N/A"],
+        ["City:", payment.customer.city if payment.customer else "N/A"],
+        ["", ""],
+        ["Previous Balance:", f"${payment.previous_balance:.2f}" if payment.previous_balance is not None else "N/A"],
+        ["Payment Amount:", f"${payment.amount:.2f}"],
+        ["New Balance:", f"${new_balance:.2f}"],
+    ]
+
+    if payment.notes:
+        receipt_data.append(["", ""])
+        receipt_data.append(["Notes:", payment.notes])
+
+    table = Table(receipt_data, colWidths=[2*inch, 4*inch])
+    table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        # Highlight the payment row
+        ('BACKGROUND', (0, 7), (-1, 7), colors.Color(0.9, 1, 0.9)),
+        ('FONTNAME', (0, 7), (-1, 7), 'Helvetica-Bold'),
+    ]))
+    elements.append(table)
+
+    elements.append(Spacer(1, 40))
+
+    # Footer
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.gray,
+        alignment=1
+    )
+    elements.append(Paragraph("Thank you for your payment!", footer_style))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+@app.route("/receipts/<int:payment_id>/pdf")
+@login_required
+def download_receipt(payment_id):
+    """Download PDF receipt for a payment"""
+    payment = Payment.query.options(
+        db.joinedload(Payment.customer)
+    ).get_or_404(payment_id)
+
+    pdf_buffer = generate_receipt_pdf(payment)
+
+    filename = f"receipt_{payment.receipt_number or payment_id}.pdf"
+    return Response(
+        pdf_buffer.getvalue(),
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+# JSON API for offline mode
+@app.route("/api/route/today")
+@login_required
+def api_route_today():
+    """JSON API endpoint for today's route - used by offline mode"""
+    today = datetime.now().date()
+    stops = (
+        RouteStop.query.filter_by(route_date=today)
+        .order_by(RouteStop.sequence)
+        .all()
+    )
+
+    stops_data = []
+    for stop in stops:
+        stops_data.append({
+            "id": stop.id,
+            "sequence": stop.sequence,
+            "completed": stop.completed,
+            "notes": stop.notes,
+            "customer": {
+                "id": stop.customer.id,
+                "name": stop.customer.name,
+                "city": stop.customer.city,
+                "address": stop.customer.address,
+                "phone": stop.customer.phone,
+                "balance": float(stop.customer.balance) if stop.customer.balance else 0,
+                "last_visit": stop.customer.last_visit.strftime("%Y-%m-%d") if stop.customer.last_visit else None
+            }
+        })
+
+    return jsonify({
+        "date": today.strftime("%Y-%m-%d"),
+        "stops": stops_data,
+        "total": len(stops),
+        "completed": sum(1 for s in stops if s.completed)
+    })
+
+
 # Initialize database - runs once at startup
 def init_db():
     """Initialize database tables and fix any data issues"""
     with app.app_context():
         db.create_all()
+
+        # Create default admin user if no users exist
+        if User.query.count() == 0:
+            admin = User(
+                username="admin",
+                email="admin@candyroute.local"
+            )
+            admin.set_password("admin123")
+            db.session.add(admin)
+            db.session.commit()
+            logger.info("Created default admin user (username: admin, password: admin123)")
 
         # Fix any None balances
         customers_with_none_balance = Customer.query.filter(

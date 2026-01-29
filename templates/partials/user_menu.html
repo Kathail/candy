@@ -1,0 +1,18 @@
+<div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
+            <span class="text-brand font-semibold text-sm">{{ current_user.username[0].upper() }}</span>
+        </div>
+        <div>
+            <div class="text-sm font-medium">{{ current_user.username }}</div>
+            <div class="text-xs text-muted">{{ current_user.email }}</div>
+        </div>
+    </div>
+    <a href="{{ url_for('logout') }}"
+       class="text-muted hover:text-danger text-xs transition"
+       title="Logout">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+    </a>
+</div>

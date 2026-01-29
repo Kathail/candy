@@ -9,14 +9,44 @@ content %}
                 Business insights and performance metrics
             </p>
         </div>
-        <select
-            class="bg-panel border border-border rounded-md px-3 py-2 text-sm"
-        >
-            <option>Last 30 Days</option>
-            <option>Last 90 Days</option>
-            <option>This Year</option>
-            <option>All Time</option>
-        </select>
+        <div class="flex gap-2">
+            <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open"
+                        class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Export
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="open" @click.away="open = false"
+                     x-cloak
+                     class="absolute right-0 mt-2 w-48 bg-panel border border-border rounded-lg shadow-lg z-10">
+                    <a href="{{ url_for('export_customers') }}"
+                       class="block px-4 py-2 text-sm hover:bg-panel2 rounded-t-lg">
+                        Customers CSV
+                    </a>
+                    <a href="{{ url_for('export_payments') }}"
+                       class="block px-4 py-2 text-sm hover:bg-panel2">
+                        Payments CSV
+                    </a>
+                    <a href="{{ url_for('export_routes') }}"
+                       class="block px-4 py-2 text-sm hover:bg-panel2 rounded-b-lg">
+                        Routes CSV
+                    </a>
+                </div>
+            </div>
+            <select
+                class="bg-panel border border-border rounded-md px-3 py-2 text-sm"
+            >
+                <option>Last 30 Days</option>
+                <option>Last 90 Days</option>
+                <option>This Year</option>
+                <option>All Time</option>
+            </select>
+        </div>
     </div>
 
     <!-- Key Metrics -->
