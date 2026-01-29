@@ -1,0 +1,51 @@
+# ─────────────────────────────
+# Python
+# ─────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.env.*
+
+# ─────────────────────────────
+# Flask / SQLAlchemy
+# ─────────────────────────────
+instance/
+*.db
+*.sqlite3
+
+# Migrations (if you add Alembic later)
+migrations/
+
+# ─────────────────────────────
+# Logs
+# ─────────────────────────────
+*.log
+
+# ─────────────────────────────
+# OS / Editor junk
+# ─────────────────────────────
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─────────────────────────────
+# Node / frontend (if added later)
+# ─────────────────────────────
+node_modules/
+dist/
+build/
+
+# ─────────────────────────────
+# Render / deploy artifacts
+# ─────────────────────────────
+.render/
