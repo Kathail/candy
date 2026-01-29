@@ -1331,6 +1331,48 @@ def api_route_today():
     })
 
 
+# Admin route to reimport customers (clears existing)
+@app.route("/admin/reimport-customers", methods=["POST"])
+@login_required
+def admin_reimport_customers():
+    """Clear all customers and reimport from CSV"""
+    csv_file = os.path.join(os.path.dirname(__file__), "customers_cleaned.csv")
+    if not os.path.exists(csv_file):
+        return jsonify({"error": "CSV file not found"}), 404
+
+    try:
+        # Clear existing data
+        RouteStop.query.delete()
+        Payment.query.delete()
+        Customer.query.delete()
+        db.session.commit()
+
+        # Import from CSV
+        imported = 0
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                customer = Customer(
+                    name=row["name"],
+                    address=row.get("address", ""),
+                    city=row.get("city", ""),
+                    phone=row.get("phone", ""),
+                    balance=0.0,
+                    created_at=datetime.now(timezone.utc),
+                )
+                db.session.add(customer)
+                imported += 1
+                if imported % 50 == 0:
+                    db.session.commit()
+        db.session.commit()
+        logger.info(f"Reimported {imported} customers from CSV")
+        return jsonify({"success": True, "imported": imported})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error reimporting customers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # Initialize database - runs once at startup
 def init_db():
     """Initialize database tables and fix any data issues"""
