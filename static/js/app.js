@@ -269,10 +269,114 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
     document.head.appendChild(style);
+
+    // HTMX loading indicator setup
+    const globalLoader = document.getElementById('global-loader');
+    if (globalLoader) {
+        document.body.addEventListener('htmx:beforeRequest', () => {
+            globalLoader.style.transform = 'scaleX(0.3)';
+        });
+        document.body.addEventListener('htmx:afterRequest', () => {
+            globalLoader.style.transform = 'scaleX(1)';
+            setTimeout(() => {
+                globalLoader.style.transform = 'scaleX(0)';
+            }, 200);
+        });
+    }
 });
+
+// ============================================
+// Confirmation Dialog
+// ============================================
+
+const Confirm = {
+    /**
+     * Show a confirmation dialog
+     * @param {object} options - Configuration options
+     * @param {string} options.title - Dialog title
+     * @param {string} options.message - Dialog message
+     * @param {string} options.confirmText - Confirm button text (default: 'Confirm')
+     * @param {string} options.cancelText - Cancel button text (default: 'Cancel')
+     * @param {string} options.type - 'danger', 'warning', 'info' (default: 'danger')
+     * @returns {Promise<boolean>} - Resolves true if confirmed, false if cancelled
+     */
+    show(options = {}) {
+        return new Promise((resolve) => {
+            const {
+                title = 'Are you sure?',
+                message = 'This action cannot be undone.',
+                confirmText = 'Confirm',
+                cancelText = 'Cancel',
+                type = 'danger'
+            } = options;
+
+            const colors = {
+                danger: 'bg-danger hover:bg-red-600',
+                warning: 'bg-warn hover:bg-yellow-500 text-black',
+                info: 'bg-brand hover:bg-blue-700'
+            };
+
+            // Create modal HTML
+            const modal = document.createElement('div');
+            modal.id = 'confirm-dialog';
+            modal.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="fixed inset-0 bg-black/50" id="confirm-overlay"></div>
+                <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+                    <h3 class="text-lg font-semibold mb-2">${title}</h3>
+                    <p class="text-sm text-muted mb-6">${message}</p>
+                    <div class="flex gap-3">
+                        <button id="confirm-cancel" class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            ${cancelText}
+                        </button>
+                        <button id="confirm-ok" class="flex-1 ${colors[type]} text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            ${confirmText}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+
+            const cleanup = (result) => {
+                document.body.style.overflow = '';
+                modal.remove();
+                resolve(result);
+            };
+
+            modal.querySelector('#confirm-ok').addEventListener('click', () => cleanup(true));
+            modal.querySelector('#confirm-cancel').addEventListener('click', () => cleanup(false));
+            modal.querySelector('#confirm-overlay').addEventListener('click', () => cleanup(false));
+
+            // Handle escape key
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    document.removeEventListener('keydown', handleEscape);
+                    cleanup(false);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    },
+
+    /**
+     * Show a delete confirmation
+     * @param {string} itemName - Name of item being deleted
+     */
+    delete(itemName = 'this item') {
+        return this.show({
+            title: 'Delete Confirmation',
+            message: `Are you sure you want to delete ${itemName}? This action cannot be undone.`,
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+    }
+};
 
 // Export for use in other scripts
 window.Modal = Modal;
 window.Toast = Toast;
 window.Api = Api;
 window.Utils = Utils;
+window.Confirm = Confirm;

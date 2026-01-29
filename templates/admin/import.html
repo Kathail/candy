@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Import Customers{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-semibold">Import Customers</h1>
+        <p class="text-xs text-muted mt-1">Upload a CSV file to import customers</p>
+    </div>
+
+    <div class="bg-panel rounded-xl shadow-soft p-6">
+        {% if error %}
+        <div class="bg-danger/20 border border-danger/50 text-danger text-sm px-4 py-3 rounded-lg mb-6">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="bg-good/20 border border-good/50 text-good text-sm px-4 py-3 rounded-lg mb-6">
+            {{ success }}
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-medium mb-2">CSV File</label>
+                <div class="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-brand transition">
+                    <input type="file" name="file" accept=".csv" required
+                           class="w-full cursor-pointer"
+                           onchange="updateFileName(this)"/>
+                    <div class="text-sm text-muted mt-2" id="file-name">Select a CSV file</div>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="p-4 bg-panel2 rounded-lg">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="clear_existing"
+                           class="w-4 h-4 rounded border-border bg-panel text-brand focus:ring-brand">
+                    <div>
+                        <div class="text-sm font-medium">Clear existing customers</div>
+                        <div class="text-xs text-muted">Delete all current customers before importing</div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- CSV Format Info -->
+            <div class="p-4 bg-panel2 rounded-lg">
+                <div class="text-sm font-medium mb-2">Expected CSV Format</div>
+                <div class="text-xs text-muted space-y-1">
+                    <p>Required column: <code class="bg-panel px-1 rounded">name</code></p>
+                    <p>Optional columns: <code class="bg-panel px-1 rounded">address</code>, <code class="bg-panel px-1 rounded">city</code>, <code class="bg-panel px-1 rounded">phone</code>, <code class="bg-panel px-1 rounded">notes</code>, <code class="bg-panel px-1 rounded">balance</code></p>
+                </div>
+                <div class="mt-3 text-xs text-muted bg-panel p-2 rounded font-mono">
+                    name,address,city,phone,notes,balance<br>
+                    "Joe's Market","123 Main St","Springfield","555-1234","",0.00
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit"
+                        class="flex-1 bg-brand hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition">
+                    Import Customers
+                </button>
+                <a href="{{ url_for('customers') }}"
+                   class="flex-1 bg-panel2 hover:bg-border text-white text-center font-semibold py-3 px-4 rounded-lg transition">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Current Stats -->
+    <div class="mt-6 bg-panel rounded-xl shadow-soft p-4">
+        <div class="text-sm font-medium mb-2">Current Database</div>
+        <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+                <div class="text-2xl font-semibold">{{ customer_count if customer_count is defined else '?' }}</div>
+                <div class="text-xs text-muted">Customers</div>
+            </div>
+            <div>
+                <div class="text-2xl font-semibold">{{ payment_count if payment_count is defined else '?' }}</div>
+                <div class="text-xs text-muted">Payments</div>
+            </div>
+            <div>
+                <div class="text-2xl font-semibold">{{ route_count if route_count is defined else '?' }}</div>
+                <div class="text-xs text-muted">Route Stops</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateFileName(input) {
+    const fileName = input.files[0]?.name || 'Select a CSV file';
+    document.getElementById('file-name').textContent = fileName;
+}
+</script>
+
+{% endblock %}

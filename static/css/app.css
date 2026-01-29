@@ -64,3 +64,62 @@ body {
     z-index: 10;
     background: var(--panel2);
 }
+
+/* HTMX Loading Indicators */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator {
+    display: inline-flex;
+}
+
+.htmx-request.htmx-indicator {
+    display: inline-flex;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    width: 1em;
+    height: 1em;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Fade content during loading */
+.htmx-request [hx-target],
+.htmx-request[hx-target] {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+/* Global loading bar at top of page */
+#global-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--brand);
+    z-index: 9999;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s;
+}
+
+.htmx-request #global-loader {
+    transform: scaleX(0.7);
+}
+
+/* Button loading state */
+button.htmx-request,
+a.htmx-request {
+    pointer-events: none;
+    opacity: 0.7;
+}

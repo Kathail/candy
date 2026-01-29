@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+
+<div x-data="{ showAddModal: false }">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">User Management</h1>
+            <p class="text-xs text-muted mt-1">{{ users|length }} registered user{% if users|length != 1 %}s{% endif %}</p>
+        </div>
+        <button
+            @click="showAddModal = true"
+            class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+            + Add User
+        </button>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-panel rounded-xl shadow-soft overflow-hidden">
+        <div class="scrollable-table">
+            <table class="w-full text-sm">
+                <thead class="bg-panel2 text-muted">
+                    <tr>
+                        <th class="text-left px-4 py-3 font-semibold">Username</th>
+                        <th class="text-left px-4 py-3 font-semibold">Email</th>
+                        <th class="text-left px-4 py-3 font-semibold">Role</th>
+                        <th class="text-left px-4 py-3 font-semibold">Created</th>
+                        <th class="text-right px-4 py-3 font-semibold">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class="border-t border-border hover:bg-panel2 transition">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
+                                    <span class="text-brand font-semibold text-sm">{{ user.username[0].upper() }}</span>
+                                </div>
+                                <span class="font-semibold">{{ user.username }}</span>
+                                {% if user.id == current_user.id %}
+                                <span class="text-xs bg-brand/20 text-brand px-2 py-0.5 rounded">You</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-muted">{{ user.email }}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-xs font-semibold px-2 py-1 rounded {% if user.role == 'admin' %}bg-warn/20 text-warn{% else %}bg-good/20 text-good{% endif %}">
+                                {{ user.role|capitalize }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-muted">
+                            {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            {% if user.id != current_user.id %}
+                            <div class="flex items-center justify-end gap-2">
+                                <form action="{{ url_for('admin_toggle_role', user_id=user.id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="text-xs text-brand hover:underline">
+                                        Make {{ 'Sales' if user.role == 'admin' else 'Admin' }}
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="button" onclick="confirmDeleteUser(this.form, '{{ user.username }}')" class="text-xs text-danger hover:underline">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div x-show="showAddModal"
+         x-cloak
+         @keydown.escape.window="showAddModal = false"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div @click="showAddModal = false" class="fixed inset-0 bg-black/50"></div>
+
+            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Add New User</h3>
+                    <button @click="showAddModal = false" class="text-muted hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form action="{{ url_for('admin_add_user') }}" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Username *</label>
+                        <input type="text" name="username" required
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="johndoe">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Email *</label>
+                        <input type="email" name="email" required
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="john@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Password *</label>
+                        <input type="password" name="password" required minlength="6"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="Min 6 characters">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Role</label>
+                        <select name="role"
+                                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                            <option value="sales">Sales Rep</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit"
+                                class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Add User
+                        </button>
+                        <button type="button"
+                                @click="showAddModal = false"
+                                class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<script>
+async function confirmDeleteUser(form, username) {
+    const confirmed = await Confirm.delete(username);
+    if (confirmed) {
+        form.submit();
+    }
+}
+</script>
+
+{% endblock %}

@@ -41,6 +41,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
+    role = db.Column(db.String(20), default="sales", nullable=False)  # admin, sales
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def set_password(self, password):
@@ -49,10 +50,25 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    def is_admin(self):
+        return self.role == "admin"
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template("errors/404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template("errors/500.html"), 500
 
 
 # Models with indexes for better query performance
@@ -122,6 +138,184 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("login"))
+
+
+# Admin decorator
+def admin_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin():
+            return jsonify({"error": "Admin access required"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route("/admin/users")
+@login_required
+@admin_required
+def admin_users():
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template("admin/users.html", users=users)
+
+
+@app.route("/admin/users/add", methods=["POST"])
+@login_required
+@admin_required
+def admin_add_user():
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+    role = request.form.get("role", "sales")
+
+    if not username or not email or not password:
+        return jsonify({"error": "All fields required"}), 400
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already exists"}), 400
+
+    user = User(username=username, email=email, role=role)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    logger.info(f"Admin {current_user.username} created user {username}")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    if user_id == current_user.id:
+        return jsonify({"error": "Cannot delete yourself"}), 400
+
+    user = User.query.get_or_404(user_id)
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    logger.info(f"Admin {current_user.username} deleted user {username}")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<int:user_id>/toggle-role", methods=["POST"])
+@login_required
+@admin_required
+def admin_toggle_role(user_id):
+    if user_id == current_user.id:
+        return jsonify({"error": "Cannot change your own role"}), 400
+
+    user = User.query.get_or_404(user_id)
+    user.role = "sales" if user.role == "admin" else "admin"
+    db.session.commit()
+    logger.info(f"Admin {current_user.username} changed {user.username} role to {user.role}")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/import", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_import():
+    if request.method == "POST":
+        if "file" not in request.files:
+            return render_template("admin/import.html", error="No file selected")
+
+        file = request.files["file"]
+        if file.filename == "":
+            return render_template("admin/import.html", error="No file selected")
+
+        if not file.filename.endswith(".csv"):
+            return render_template("admin/import.html", error="File must be a CSV")
+
+        clear_existing = request.form.get("clear_existing") == "on"
+
+        try:
+            # Read CSV content
+            import io
+            stream = io.StringIO(file.stream.read().decode("utf-8"))
+            reader = csv.DictReader(stream)
+
+            # Validate columns
+            required_columns = {"name"}
+            if not required_columns.issubset(set(reader.fieldnames or [])):
+                return render_template("admin/import.html", error="CSV must have 'name' column")
+
+            if clear_existing:
+                RouteStop.query.delete()
+                Payment.query.delete()
+                Customer.query.delete()
+                db.session.commit()
+
+            imported = 0
+            skipped = 0
+
+            for row in reader:
+                # Check for duplicate
+                existing = Customer.query.filter_by(
+                    name=row.get("name", ""),
+                    phone=row.get("phone", "")
+                ).first()
+
+                if existing:
+                    skipped += 1
+                    continue
+
+                customer = Customer(
+                    name=row.get("name", ""),
+                    address=row.get("address", ""),
+                    city=row.get("city", ""),
+                    phone=row.get("phone", ""),
+                    notes=row.get("notes", ""),
+                    balance=float(row.get("balance", 0) or 0),
+                    created_at=datetime.now(timezone.utc),
+                )
+                db.session.add(customer)
+                imported += 1
+
+                if imported % 50 == 0:
+                    db.session.commit()
+
+            db.session.commit()
+            logger.info(f"Admin {current_user.username} imported {imported} customers")
+            return render_template("admin/import.html",
+                                   success=f"Imported {imported} customers ({skipped} skipped as duplicates)")
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Import error: {e}")
+            return render_template("admin/import.html", error=f"Import failed: {str(e)}")
+
+    return render_template("admin/import.html",
+                           customer_count=Customer.query.count(),
+                           payment_count=Payment.query.count(),
+                           route_count=RouteStop.query.count())
+
+
+@app.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not current_user.check_password(current_password):
+            return render_template("change_password.html", error="Current password is incorrect")
+
+        if len(new_password) < 6:
+            return render_template("change_password.html", error="New password must be at least 6 characters")
+
+        if new_password != confirm_password:
+            return render_template("change_password.html", error="New passwords do not match")
+
+        current_user.set_password(new_password)
+        db.session.commit()
+        logger.info(f"Password changed for user {current_user.username}")
+        return render_template("change_password.html", success="Password changed successfully")
+
+    return render_template("change_password.html")
 
 
 # Dashboard Route
@@ -893,18 +1087,45 @@ def analytics():
     import json
     from collections import defaultdict
 
+    # Get date range from query params
+    date_range = request.args.get("range", "30")
+    today = datetime.now().date()
+
+    if date_range == "7":
+        start_date = today - timedelta(days=7)
+        range_label = "Last 7 Days"
+    elif date_range == "30":
+        start_date = today - timedelta(days=30)
+        range_label = "Last 30 Days"
+    elif date_range == "90":
+        start_date = today - timedelta(days=90)
+        range_label = "Last 90 Days"
+    elif date_range == "365":
+        start_date = today - timedelta(days=365)
+        range_label = "This Year"
+    else:
+        start_date = None
+        range_label = "All Time"
+
     # Get counts and aggregations efficiently
     total_customers = Customer.query.count()
 
     # Use eager loading for payments to avoid N+1
-    all_payments = Payment.query.options(
-        db.joinedload(Payment.customer)
-    ).all()
+    payments_query = Payment.query.options(db.joinedload(Payment.customer))
+    stops_query = RouteStop.query
 
-    all_stops = RouteStop.query.all()
+    if start_date:
+        payments_query = payments_query.filter(Payment.payment_date >= start_date)
+        stops_query = stops_query.filter(RouteStop.route_date >= start_date)
+
+    all_payments = payments_query.all()
+    all_stops = stops_query.all()
 
     # Key metrics using SQL aggregation where possible
-    total_collected = db.session.query(db.func.sum(Payment.amount)).scalar() or 0
+    collected_query = db.session.query(db.func.sum(Payment.amount))
+    if start_date:
+        collected_query = collected_query.filter(Payment.payment_date >= start_date)
+    total_collected = collected_query.scalar() or 0
 
     outstanding_stats = db.session.query(
         db.func.sum(Customer.balance),
@@ -1051,6 +1272,9 @@ def analytics():
         avg_stops_per_route=f"{avg_stops_per_route:.1f}",
         completion_rate=completion_rate,
         busiest_day=busiest_day,
+        # Date range
+        current_range=date_range,
+        range_label=range_label,
     )
 
 
@@ -1391,7 +1615,8 @@ def init_db():
         if User.query.count() == 0:
             admin = User(
                 username="admin",
-                email="admin@candyroute.local"
+                email="admin@candyroute.local",
+                role="admin"
             )
             admin.set_password("admin123")
             db.session.add(admin)

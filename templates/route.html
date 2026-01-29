@@ -18,6 +18,18 @@ content %}
         </a>
     </div>
 
+    <!-- Search -->
+    {% if stops %}
+    <div class="mb-4">
+        <input
+            type="text"
+            x-model="searchQuery"
+            placeholder="Search stops by name or city..."
+            class="w-full md:w-80 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+    </div>
+    {% endif %}
+
     <!-- Route Progress -->
     <section class="bg-panel rounded-xl shadow-soft p-4 mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -67,6 +79,8 @@ content %}
         <div class="lg:col-span-2 space-y-3 scrollable-container">
             {% if stops %} {% for stop in stops %}
             <div
+                x-show="!searchQuery || '{{ stop.customer.name }}'.toLowerCase().includes(searchQuery.toLowerCase()) || '{{ stop.customer.city }}'.toLowerCase().includes(searchQuery.toLowerCase())"
+                x-transition
                 class="bg-panel rounded-xl shadow-soft p-4 cursor-pointer hover:ring-2 hover:ring-brand/50 transition"
                 :class="selectedStop === {{ stop.id }} ? 'ring-2 ring-brand' : ''"
                 @click="selectedStop = {{ stop.id }}"
@@ -223,6 +237,7 @@ content %}
     function routePage() {
         return {
             selectedStop: null,
+            searchQuery: '',
         };
     }
 </script>

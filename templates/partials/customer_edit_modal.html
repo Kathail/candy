@@ -145,14 +145,23 @@
 
     <!-- Danger Zone - separate form for delete -->
     <div class="pt-3 border-t border-danger/20">
-        <form action="/customers/{{ customer.id }}/delete" method="POST"
-              onsubmit="return confirm('Delete this customer? This cannot be undone!');">
+        <form id="delete-customer-form" action="/customers/{{ customer.id }}/delete" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button
-                type="submit"
+                type="button"
+                onclick="confirmDeleteCustomer('{{ customer.name }}')"
                 class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
             >
                 Delete Customer
             </button>
         </form>
     </div>
+
+<script>
+async function confirmDeleteCustomer(name) {
+    const confirmed = await Confirm.delete(name);
+    if (confirmed) {
+        document.getElementById('delete-customer-form').submit();
+    }
+}
+</script>
