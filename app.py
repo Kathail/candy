@@ -1348,6 +1348,34 @@ def init_db():
             db.session.commit()
             logger.info("Created default admin user (username: admin, password: admin123)")
 
+        # Import customers from CSV if database is empty
+        if Customer.query.count() == 0:
+            csv_file = os.path.join(os.path.dirname(__file__), "customers_cleaned.csv")
+            if os.path.exists(csv_file):
+                logger.info(f"Importing customers from {csv_file}...")
+                imported = 0
+                try:
+                    with open(csv_file, "r", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            customer = Customer(
+                                name=row["name"],
+                                address=row.get("address", ""),
+                                city=row.get("city", ""),
+                                phone=row.get("phone", ""),
+                                balance=0.0,
+                                created_at=datetime.now(timezone.utc),
+                            )
+                            db.session.add(customer)
+                            imported += 1
+                            if imported % 50 == 0:
+                                db.session.commit()
+                    db.session.commit()
+                    logger.info(f"Imported {imported} customers from CSV")
+                except Exception as e:
+                    logger.error(f"Error importing customers: {e}")
+                    db.session.rollback()
+
         # Fix any None balances
         customers_with_none_balance = Customer.query.filter(
             Customer.balance == None
