@@ -58,7 +58,7 @@
     </a>
     <a
         href="/balances"
-        class="nav-item flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-300 hover:bg-panel hover:text-slate-100"
+        class="nav-item flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 {% if request.path.startswith('/balances') %} bg-brand text-white shadow-lg shadow-brand/20 {% else %} text-slate-300 hover:bg-panel hover:text-slate-100 {% endif %}"
     >
         <div class="flex items-center gap-3">
             <svg
