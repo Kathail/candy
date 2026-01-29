@@ -1,0 +1,261 @@
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+content %}
+<h1 class="text-2xl font-semibold mb-4">Dashboard</h1>
+
+<!-- Today's Route -->
+<a href="/route" class="block">
+    <section
+        class="bg-panel rounded-xl shadow-soft p-4 flex items-center justify-between border-l-4 border-good mb-4 hover:bg-panel2 transition cursor-pointer"
+    >
+        <div>
+            <div class="text-sm font-semibold">Today's Route</div>
+            <div class="text-xs text-muted mt-1">
+                {{ completed }} / {{ total }} completed {% if completed == total
+                and total > 0 %}
+                <span class="text-good font-semibold ml-2">✓ Complete</span>
+                {% elif total > 0 %}
+                <span class="text-warn font-semibold ml-2">In Progress</span>
+                {% else %}
+                <span class="text-muted font-semibold ml-2">Not Started</span>
+                {% endif %}
+            </div>
+
+            <div
+                class="mt-2 w-72 max-w-full h-2 rounded-full bg-panel2 overflow-hidden"
+            >
+                <div
+                    class="h-full bg-good transition-all duration-500"
+                    style="width: {{ (completed / total * 100) if total else 0 }}%"
+                ></div>
+            </div>
+
+            <div class="text-xs text-muted mt-1">
+                ${{ outstanding }} outstanding
+            </div>
+        </div>
+
+        <button
+            class="bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md transition"
+        >
+            {% if completed < total %}Resume Work{% else %}View Route{% endif %}
+        </button>
+    </section>
+</a>
+
+<!-- Action Required -->
+{% if urgent_customers > 0 %}
+<div class="text-danger text-xs font-semibold mb-2">▲ Action Required</div>
+<a href="/balances" class="block">
+    <section
+        class="bg-panel rounded-xl shadow-soft p-4 border border-warn flex items-center justify-between mb-4 hover:bg-panel2 transition cursor-pointer"
+    >
+        <div>
+            <div class="text-sm font-semibold text-warn">
+                Outstanding balances
+            </div>
+            <div class="text-xs text-muted mt-1">
+                {{ urgent_customers }} customer{% if urgent_customers != 1 %}s{%
+                endif %} still owe{% if urgent_customers == 1 %}s{% endif %}
+                money
+            </div>
+        </div>
+        <span class="text-warn text-xs font-semibold hover:underline"
+            >Review →</span
+        >
+    </section>
+</a>
+{% endif %}
+
+<!-- KPI Row -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+    <a href="/customers" class="block">
+        <div
+            class="bg-panel rounded-lg p-3 shadow-soft hover:bg-panel2 transition cursor-pointer h-full"
+        >
+            <div class="text-xs text-muted">Total Customers</div>
+            <div class="text-xl font-semibold">{{ total_customers }}</div>
+            <div class="text-xs text-brand mt-1">View all →</div>
+        </div>
+    </a>
+
+    <a href="/balances" class="block">
+        <div
+            class="bg-panel rounded-lg p-3 shadow-soft hover:bg-panel2 transition cursor-pointer h-full"
+        >
+            <div class="text-xs text-muted">Total Owed</div>
+            <div class="text-xl font-semibold text-warn">${{ total_owed }}</div>
+            <div class="text-xs text-brand mt-1">Review →</div>
+        </div>
+    </a>
+
+    <div class="bg-panel rounded-lg p-3 shadow-soft">
+        <div class="text-xs text-muted">Today's Collections</div>
+        <div class="text-xl font-semibold text-good">
+            ${{ todays_collections }}
+        </div>
+        <div class="text-xs text-muted mt-1">Collected today</div>
+    </div>
+
+    <div class="bg-panel rounded-lg p-3 shadow-soft">
+        <div class="text-xs text-muted">Avg. Balance</div>
+        <div class="text-xl font-semibold">${{ avg_balance }}</div>
+        <div class="text-xs text-muted mt-1">Per customer</div>
+    </div>
+</section>
+
+<!-- Health + Quick Actions -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="text-sm font-semibold mb-3">Customer Health</div>
+
+        <a
+            href="/customers?filter=never"
+            class="block hover:bg-panel2 transition rounded-lg"
+        >
+            <div
+                class="flex items-center justify-between py-3 border-b border-border"
+            >
+                <div>
+                    <div class="text-sm font-semibold">Never visited</div>
+                    <div class="text-xs text-muted">
+                        Need to make first contact
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="text-lg font-semibold">{{ never_visited }}</div>
+                    <span class="text-xs text-brand">→</span>
+                </div>
+            </div>
+        </a>
+
+        <a
+            href="/customers?filter=30"
+            class="block hover:bg-panel2 transition rounded-lg"
+        >
+            <div
+                class="flex items-center justify-between py-3 border-b border-border"
+            >
+                <div>
+                    <div class="text-sm font-semibold">30+ days</div>
+                    <div class="text-xs text-muted">Due for a visit</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="text-lg font-semibold text-warn">
+                        {{ thirty_plus }}
+                    </div>
+                    <span class="text-xs text-brand">→</span>
+                </div>
+            </div>
+        </a>
+
+        <a
+            href="/customers?filter=60"
+            class="block hover:bg-panel2 transition rounded-lg"
+        >
+            <div class="flex items-center justify-between py-3">
+                <div>
+                    <div class="text-sm font-semibold">60+ days</div>
+                    <div class="text-xs text-muted">Need attention soon</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="text-lg font-semibold text-danger">
+                        {{ sixty_plus }}
+                    </div>
+                    <span class="text-xs text-brand">→</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="text-sm font-semibold mb-3">Quick Actions</div>
+
+        <a href="/route" class="block hover:bg-panel2 transition rounded-lg">
+            <div class="py-3 border-b border-border flex items-center gap-3">
+                <span class="text-2xl">📍</span>
+                <div class="flex-1">
+                    <div class="text-sm font-semibold">View Today's Route</div>
+                    <div class="text-xs text-muted">
+                        Navigate your daily stops
+                    </div>
+                </div>
+                <span class="text-xs text-brand">→</span>
+            </div>
+        </a>
+
+        <a
+            href="/customers"
+            class="block hover:bg-panel2 transition rounded-lg"
+        >
+            <div class="py-3 border-b border-border flex items-center gap-3">
+                <span class="text-2xl">👥</span>
+                <div class="flex-1">
+                    <div class="text-sm font-semibold">Manage Customers</div>
+                    <div class="text-xs text-muted">
+                        View and edit customer database
+                    </div>
+                </div>
+                <span class="text-xs text-brand">→</span>
+            </div>
+        </a>
+
+        <a href="/balances" class="block hover:bg-panel2 transition rounded-lg">
+            <div class="py-3 border-b border-border flex items-center gap-3">
+                <span class="text-2xl">💰</span>
+                <div class="flex-1">
+                    <div class="text-sm font-semibold">Review Balances</div>
+                    <div class="text-xs text-muted">
+                        Track outstanding payments
+                    </div>
+                </div>
+                <span class="text-xs text-brand">→</span>
+            </div>
+        </a>
+
+        <a href="/planner" class="block hover:bg-panel2 transition rounded-lg">
+            <div class="py-3 flex items-center gap-3">
+                <span class="text-2xl">📅</span>
+                <div class="flex-1">
+                    <div class="text-sm font-semibold">Plan Routes</div>
+                    <div class="text-xs text-muted">Schedule future visits</div>
+                </div>
+                <span class="text-xs text-brand">→</span>
+            </div>
+        </a>
+    </div>
+</section>
+
+<!-- Recent Activity (Optional future enhancement) -->
+<section class="bg-panel rounded-xl shadow-soft p-4">
+    <div class="flex items-center justify-between mb-3">
+        <div class="text-sm font-semibold">Quick Stats</div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="text-center p-3 bg-panel2 rounded-lg">
+            <div class="text-2xl font-semibold text-brand">{{ completed }}</div>
+            <div class="text-xs text-muted mt-1">Stops Today</div>
+        </div>
+
+        <div class="text-center p-3 bg-panel2 rounded-lg">
+            <div class="text-2xl font-semibold text-good">
+                ${{ todays_collections }}
+            </div>
+            <div class="text-xs text-muted mt-1">Collected</div>
+        </div>
+
+        <div class="text-center p-3 bg-panel2 rounded-lg">
+            <div class="text-2xl font-semibold text-warn">
+                {{ urgent_customers }}
+            </div>
+            <div class="text-xs text-muted mt-1">Need Follow-up</div>
+        </div>
+
+        <div class="text-center p-3 bg-panel2 rounded-lg">
+            <div class="text-2xl font-semibold">{{ total_customers }}</div>
+            <div class="text-xs text-muted mt-1">Active</div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

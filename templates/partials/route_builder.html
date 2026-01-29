@@ -1,0 +1,171 @@
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-3">
+        <div>
+            <h3 class="text-lg font-semibold">{{ date_formatted }}</h3>
+            <p class="text-xs text-muted">{{ day_name }}</p>
+        </div>
+        <span
+            class="text-xs font-semibold bg-brand/20 text-brand px-2 py-1 rounded"
+        >
+            {{ stops|length }} stops
+        </span>
+    </div>
+
+    <!-- Route Stops -->
+    {% if stops %}
+    <div class="space-y-2 max-h-[400px] overflow-y-auto">
+        {% for stop in stops %}
+        <div class="bg-panel2 rounded-lg p-3 border border-border">
+            <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="flex items-center justify-center w-6 h-6 rounded-full bg-brand text-xs font-semibold"
+                    >
+                        {{ loop.index }}
+                    </div>
+                    <div>
+                        <div class="text-sm font-semibold">
+                            {{ stop.customer.name }}
+                        </div>
+                        <div class="text-xs text-muted">
+                            {{ stop.customer.city }}
+                        </div>
+                    </div>
+                </div>
+                <button
+                    hx-post="/planner/stop/{{ stop.id }}/remove"
+                    hx-target="#route-builder"
+                    hx-swap="innerHTML"
+                    class="text-danger hover:bg-danger/10 p-1 rounded transition"
+                >
+                    <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                        />
+                    </svg>
+                </button>
+            </div>
+
+            {% if stop.customer.balance > 0 %}
+            <div class="text-xs text-warn mt-2 pt-2 border-t border-border">
+                💰 Balance: ${{ "%.2f"|format(stop.customer.balance) }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-panel2 rounded-lg p-6 text-center">
+        <div class="text-3xl mb-2">📍</div>
+        <div class="text-sm font-semibold mb-1">No stops yet</div>
+        <div class="text-xs text-muted">
+            Add customers from the pool on the left
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stats -->
+    {% if stops %}
+    <div class="pt-3 border-t border-border space-y-2">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-muted">Total Stops</span>
+            <span class="font-semibold">{{ stops|length }}</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-muted">Total Owed</span>
+            <span class="font-semibold text-warn"
+                >${{ "%.2f"|format(stops|sum(attribute='customer.balance'))
+                }}</span
+            >
+        </div>
+        {% set completed = stops|selectattr('completed')|list|length %} {% if
+        completed > 0 %}
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-muted">Completed</span>
+            <span class="font-semibold text-good"
+                >{{ completed }} / {{ stops|length }}</span
+            >
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="pt-3 border-t border-border space-y-2">
+        {% if stops %}
+        <button
+            hx-post="/planner/route/{{ route_date }}/optimize"
+            hx-target="#route-builder"
+            hx-swap="innerHTML"
+            hx-indicator="#optimize-spinner"
+            class="w-full bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center justify-center gap-2"
+        >
+            <svg
+                id="optimize-spinner"
+                class="htmx-indicator animate-spin w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
+            <span>🗺️ Optimize Route</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+            <button
+                onclick="alert('Export feature coming soon!')"
+                class="bg-panel2 hover:bg-border text-white text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                📤 Export
+            </button>
+            <button
+                hx-post="/planner/route/{{ route_date }}/clear"
+                hx-target="#route-builder"
+                hx-swap="innerHTML"
+                hx-confirm="Clear all stops from this route?"
+                class="bg-danger hover:bg-red-600 text-white text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                🗑️ Clear
+            </button>
+        </div>
+        {% else %}
+        <div class="text-xs text-muted text-center">
+            Add customers to start building your route
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+</style>

@@ -1,0 +1,153 @@
+<div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-semibold">Edit Customer</h3>
+    <button onclick="closeEditModal()" class="text-muted hover:text-white">
+        <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+            />
+        </svg>
+    </button>
+</div>
+
+<form
+    action="/customers/{{ customer.id }}/update"
+    method="POST"
+    class="space-y-4"
+>
+    <div>
+        <label class="block text-xs text-muted mb-1">Name *</label>
+        <input
+            type="text"
+            name="name"
+            required
+            value="{{ customer.name }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Customer name"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Phone</label>
+        <input
+            type="tel"
+            name="phone"
+            value="{{ customer.phone or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="(555) 123-4567"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Address</label>
+        <input
+            type="text"
+            name="address"
+            value="{{ customer.address or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="123 Main St, City, State"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">City</label>
+        <input
+            type="text"
+            name="city"
+            value="{{ customer.city or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Springfield"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Balance</label>
+        <input
+            type="number"
+            name="balance"
+            step="0.01"
+            value="{{ customer.balance }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="0.00"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Notes</label>
+        <textarea
+            name="notes"
+            rows="4"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Any special notes..."
+        >
+{{ customer.notes or '' }}</textarea
+        >
+    </div>
+
+    <!-- Customer Stats -->
+    <div class="py-3 border-t border-border">
+        <div class="grid grid-cols-2 gap-4 text-xs">
+            <div>
+                <div class="text-muted">Last Visit</div>
+                <div class="font-semibold mt-1">
+                    {% if customer.last_visit %} {{
+                    customer.last_visit.strftime('%b %d, %Y') }} {% else %}
+                    Never {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Total Stops</div>
+                <div class="font-semibold mt-1">
+                    {{ customer.stops|length }}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Total Paid</div>
+                <div class="font-semibold mt-1 text-good">
+                    ${{ "%.2f"|format(customer.payments|sum(attribute='amount')
+                    if customer.payments else 0) }}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Created</div>
+                <div class="font-semibold mt-1">
+                    {{ customer.created_at.strftime('%b %d, %Y') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+        <button
+            type="submit"
+            class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Save Changes
+        </button>
+        <button
+            type="button"
+            onclick="closeEditModal()"
+            class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Cancel
+        </button>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="pt-3 border-t border-danger/20">
+        <button
+            type="button"
+            onclick="if(confirm('Delete {{ customer.name }}? This cannot be undone!')) { window.location.href='/customers/{{ customer.id }}/delete'; }"
+            class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
+        >
+            🗑️ Delete Customer
+        </button>
+    </div>
+</form>

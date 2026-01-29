@@ -1,0 +1,34 @@
+:root {
+    --bg: #0b1220;
+    --panel: #1e293b;
+    --panel2: #243042;
+    --border: #2c3a4f;
+    --muted: #94a3b8;
+    --good: #22c55e;
+    --warn: #facc15;
+    --danger: #ef4444;
+    --brand: #2563eb;
+}
+
+/* Subtle global polish that won't fight Tailwind */
+html,
+body {
+    background: var(--bg);
+}
+
+/* Optional: nicer scrollbars (desktop) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.35);
+}
