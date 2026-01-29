@@ -98,19 +98,20 @@
     </div>
 
     <!-- Customer Table -->
-    <div class="bg-panel rounded-xl shadow-soft overflow-x-auto">
-        <table class="w-full text-sm min-w-[800px]">
-            <thead class="bg-panel2 text-muted">
-                <tr>
-                    <th class="text-left px-4 py-3 font-semibold">Name</th>
-                    <th class="text-left px-4 py-3 font-semibold">Phone</th>
-                    <th class="text-left px-4 py-3 font-semibold">Address</th>
-                    <th class="text-left px-4 py-3 font-semibold">Notes</th>
-                    <th class="text-left px-4 py-3 font-semibold">Last Visited</th>
-                    <th class="text-right px-4 py-3 font-semibold">Balance</th>
-                </tr>
-            </thead>
-            <tbody id="table-body">
+    <div class="bg-panel rounded-xl shadow-soft">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-panel2 text-muted sticky top-0">
+                    <tr>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Name</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Phone</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Address</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Notes</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Last Visited</th>
+                        <th class="text-right px-4 py-3 font-semibold whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="bg-panel">
                 {% if customers %}
                     {% for c in customers %}
                     <tr class="border-t border-border hover:bg-panel2 transition">
@@ -194,8 +195,9 @@
                         </td>
                     </tr>
                 {% endif %}
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Pagination -->
