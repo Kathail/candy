@@ -1369,8 +1369,11 @@ def init_db():
             logger.info(f"Fixed {len(customers_with_none_created)} customers with None created_at")
 
 
+# Initialize database on module load (for gunicorn/production)
+init_db()
+
+
 if __name__ == "__main__":
-    init_db()
 
     # Check if we're in development mode
     debug_mode = os.environ.get("FLASK_ENV") == "development" or os.environ.get("FLASK_DEBUG") == "1"
