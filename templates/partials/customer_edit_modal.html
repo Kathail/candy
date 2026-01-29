@@ -22,6 +22,7 @@
     method="POST"
     class="space-y-4"
 >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div>
         <label class="block text-xs text-muted mb-1">Name *</label>
         <input
@@ -140,14 +141,18 @@
         </button>
     </div>
 
-    <!-- Danger Zone -->
-    <div class="pt-3 border-t border-danger/20">
-        <button
-            type="button"
-            onclick="if(confirm('Delete {{ customer.name }}? This cannot be undone!')) { window.location.href='/customers/{{ customer.id }}/delete'; }"
-            class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
-        >
-            🗑️ Delete Customer
-        </button>
-    </div>
 </form>
+
+    <!-- Danger Zone - separate form for delete -->
+    <div class="pt-3 border-t border-danger/20">
+        <form action="/customers/{{ customer.id }}/delete" method="POST"
+              onsubmit="return confirm('Delete this customer? This cannot be undone!');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="submit"
+                class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Delete Customer
+            </button>
+        </form>
+    </div>

@@ -1,8 +1,14 @@
+import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -13,26 +19,31 @@ if database_url.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max request size
+app.config["WTF_CSRF_TIME_LIMIT"] = None  # CSRF tokens don't expire
+
 db = SQLAlchemy(app)
+csrf = CSRFProtect(app)
 
 
-# Models
+# Models with indexes for better query performance
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    city = db.Column(db.String(100))
+    name = db.Column(db.String(100), nullable=False, index=True)
+    city = db.Column(db.String(100), index=True)
     address = db.Column(db.String(200))
     phone = db.Column(db.String(20))
     notes = db.Column(db.Text)
-    balance = db.Column(db.Float, default=0.0)
-    last_visit = db.Column(db.Date)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    balance = db.Column(db.Float, default=0.0, index=True)
+    last_visit = db.Column(db.Date, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class RouteStop(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
-    route_date = db.Column(db.Date, nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False, index=True)
+    route_date = db.Column(db.Date, nullable=False, index=True)
     sequence = db.Column(db.Integer)
     completed = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
@@ -41,9 +52,9 @@ class RouteStop(db.Model):
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False, index=True)
     amount = db.Column(db.Float, nullable=False)
-    payment_date = db.Column(db.Date, nullable=False)
+    payment_date = db.Column(db.Date, nullable=False, index=True)
     acknowledged = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     customer = db.relationship("Customer", backref="payments")
@@ -54,20 +65,25 @@ class Payment(db.Model):
 def dashboard():
     total_customers = Customer.query.count()
 
-    # Calculate balances
-    customers_with_balance = Customer.query.filter(Customer.balance > 0).all()
-    total_owed = sum(c.balance for c in customers_with_balance)
-    urgent_customers = len(customers_with_balance)
+    # Calculate balances efficiently using SQL aggregation
+    balance_stats = db.session.query(
+        db.func.sum(Customer.balance),
+        db.func.count(Customer.id)
+    ).filter(Customer.balance > 0).first()
 
-    # Today's collections
+    total_owed = balance_stats[0] or 0
+    urgent_customers = balance_stats[1] or 0
+
+    # Today's collections using SQL aggregation
     today = datetime.now().date()
-    todays_payments = Payment.query.filter_by(payment_date=today).all()
-    todays_collections = sum(p.amount for p in todays_payments)
+    todays_collections = db.session.query(
+        db.func.sum(Payment.amount)
+    ).filter(Payment.payment_date == today).scalar() or 0
 
     # Average balance
     avg_balance = total_owed / urgent_customers if urgent_customers > 0 else 0
 
-    # Customer health
+    # Customer health - efficient queries
     never_visited = Customer.query.filter(Customer.last_visit == None).count()
     thirty_days_ago = today - timedelta(days=30)
     sixty_days_ago = today - timedelta(days=60)
@@ -138,6 +154,7 @@ def complete_stop(stop_id):
     stop.completed = True
     stop.customer.last_visit = datetime.now().date()
     db.session.commit()
+    logger.info(f"Stop {stop_id} completed for customer {stop.customer.name}")
     return render_template("partials/stop_details.html", stop=stop)
 
 
@@ -158,17 +175,17 @@ def customers():
     page = int(request.args.get("page", 1))
     per_page = 50  # Show 50 customers per page
 
-    # Get all customers for stats
-    all_customers = Customer.query.all()
-    total_customers = len(all_customers)
-    customers_with_balance = sum(1 for c in all_customers if c.balance > 0)
-    never_visited = sum(1 for c in all_customers if c.last_visit is None)
+    # Get stats efficiently using SQL aggregation
+    total_customers = Customer.query.count()
+    customers_with_balance = Customer.query.filter(Customer.balance > 0).count()
+    never_visited = Customer.query.filter(Customer.last_visit == None).count()
 
     # Calculate needs_visit (30+ days)
     thirty_days_ago = datetime.now().date() - timedelta(days=30)
-    needs_visit = sum(
-        1 for c in all_customers if c.last_visit and c.last_visit < thirty_days_ago
-    )
+    needs_visit = Customer.query.filter(
+        Customer.last_visit != None,
+        Customer.last_visit < thirty_days_ago
+    ).count()
 
     # Build filtered query
     customers_query = Customer.query
@@ -266,6 +283,7 @@ def customer_add():
 
     db.session.add(new_customer)
     db.session.commit()
+    logger.info(f"Customer added: {name}")
 
     return redirect(url_for("customers"))
 
@@ -280,22 +298,27 @@ def customer_update(customer_id):
     customer.city = request.form.get("city") or None
     customer.notes = request.form.get("notes") or None
 
-    # Update balance if provided
+    # Update balance if provided with proper validation
     balance_str = request.form.get("balance")
     if balance_str:
         try:
-            customer.balance = float(balance_str)
+            balance_value = float(balance_str)
+            if balance_value < 0:
+                return "Balance cannot be negative", 400
+            customer.balance = balance_value
         except ValueError:
-            pass
+            return "Invalid balance value", 400
 
     db.session.commit()
+    logger.info(f"Customer updated: {customer.name}")
 
     return redirect(url_for("customers"))
 
 
-@app.route("/customers/<int:customer_id>/delete")
+@app.route("/customers/<int:customer_id>/delete", methods=["POST"])
 def customer_delete(customer_id):
     customer = Customer.query.get_or_404(customer_id)
+    customer_name = customer.name
 
     # Delete related records first
     RouteStop.query.filter_by(customer_id=customer_id).delete()
@@ -303,6 +326,7 @@ def customer_delete(customer_id):
 
     db.session.delete(customer)
     db.session.commit()
+    logger.info(f"Customer deleted: {customer_name}")
 
     return redirect(url_for("customers"))
 
@@ -370,11 +394,14 @@ def record_payment():
     notes = request.form.get("notes")
 
     if not customer_id or not amount_str:
-        return "Missing required fields", 400
+        return jsonify({"error": "Missing required fields"}), 400
 
     try:
         customer = Customer.query.get_or_404(int(customer_id))
         amount = float(amount_str)
+
+        if amount <= 0:
+            return jsonify({"error": "Amount must be positive"}), 400
 
         # Parse payment date
         if payment_date_str:
@@ -395,10 +422,14 @@ def record_payment():
 
         db.session.add(new_payment)
         db.session.commit()
+        logger.info(f"Payment recorded: ${amount} from {customer.name}")
 
         return redirect(url_for("balances"))
+    except ValueError:
+        return jsonify({"error": "Invalid amount value"}), 400
     except Exception as e:
-        return f"Error recording payment: {str(e)}", 500
+        logger.error(f"Error recording payment: {str(e)}")
+        return jsonify({"error": "Error recording payment"}), 500
 
 
 # Planner Page
@@ -456,7 +487,7 @@ def planner():
     weekly_routes = len(set(s.route_date for s in weekly_stops))
     total_planned_stops = len(weekly_stops)
 
-    # Prepare customer data for Alpine.js
+    # Prepare customer data for Alpine.js - use tojson filter instead of |safe
     import json
 
     customers_data = []
@@ -466,7 +497,7 @@ def planner():
             {
                 "id": c.id,
                 "name": c.name,
-                "city": c.city,
+                "city": c.city or "",
                 "balance": float(c.balance) if c.balance is not None else 0.0,
                 "last_visit": c.last_visit.strftime("%b %d") if c.last_visit else None,
                 "needs_visit": days_since > 30 if days_since else False,
@@ -490,8 +521,8 @@ def planner():
 def planner_date_details(date_str):
     try:
         route_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except:
-        return "Invalid date", 400
+    except ValueError:
+        return "Invalid date format", 400
 
     stops = (
         RouteStop.query.filter_by(route_date=route_date)
@@ -516,6 +547,7 @@ def planner_route_details(route_id):
     )
 
 
+@csrf.exempt  # JSON API endpoint
 @app.route("/planner/add-stop", methods=["POST"])
 def add_stop_to_route():
     customer_id = request.form.get("customer_id")
@@ -557,9 +589,11 @@ def add_stop_to_route():
             }
         )
     except Exception as e:
+        logger.error(f"Error adding stop: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@csrf.exempt  # JSON API endpoint
 @app.route("/planner/stop/<int:stop_id>/remove", methods=["POST"])
 def remove_stop_from_route(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
@@ -570,6 +604,7 @@ def remove_stop_from_route(stop_id):
     return jsonify({"success": True})
 
 
+@csrf.exempt  # JSON API endpoint
 @app.route("/planner/route/<route_date>/clear", methods=["POST"])
 def clear_route(route_date):
     try:
@@ -579,6 +614,7 @@ def clear_route(route_date):
 
         return jsonify({"success": True})
     except Exception as e:
+        logger.error(f"Error clearing route: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -676,6 +712,7 @@ def get_all_stops():
     return jsonify({"stops": stops_by_date})
 
 
+@csrf.exempt  # JSON API endpoint
 @app.route("/planner/route/<route_date>/optimize", methods=["POST"])
 def optimize_route(route_date):
     """Optimize route using nearest-neighbor algorithm grouped by city"""
@@ -738,6 +775,7 @@ def optimize_route(route_date):
 
         return jsonify({"success": True, "stops": stops_data})
     except Exception as e:
+        logger.error(f"Error optimizing route: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -747,17 +785,26 @@ def analytics():
     import json
     from collections import defaultdict
 
-    # Get all data
-    all_customers = Customer.query.all()
-    all_payments = Payment.query.all()
+    # Get counts and aggregations efficiently
+    total_customers = Customer.query.count()
+
+    # Use eager loading for payments to avoid N+1
+    all_payments = Payment.query.options(
+        db.joinedload(Payment.customer)
+    ).all()
+
     all_stops = RouteStop.query.all()
 
-    # Key metrics
-    total_customers = len(all_customers)
-    total_collected = sum(p.amount for p in all_payments)
-    outstanding_customers = [c for c in all_customers if c.balance > 0]
-    total_outstanding = sum(c.balance for c in outstanding_customers)
-    outstanding_count = len(outstanding_customers)
+    # Key metrics using SQL aggregation where possible
+    total_collected = db.session.query(db.func.sum(Payment.amount)).scalar() or 0
+
+    outstanding_stats = db.session.query(
+        db.func.sum(Customer.balance),
+        db.func.count(Customer.id)
+    ).filter(Customer.balance > 0).first()
+
+    total_outstanding = outstanding_stats[0] or 0
+    outstanding_count = outstanding_stats[1] or 0
 
     total_stops = len(all_stops)
     avg_per_stop = (total_collected / total_stops) if total_stops > 0 else 0
@@ -765,17 +812,16 @@ def analytics():
     completed_stops = sum(1 for s in all_stops if s.completed)
     visit_rate = int((completed_stops / total_stops * 100)) if total_stops > 0 else 0
 
-    # Top customers by revenue
+    # Top customers by revenue - use the eager-loaded relationships
     customer_payments = defaultdict(
         lambda: {"total": 0, "count": 0, "name": "", "city": ""}
     )
     for payment in all_payments:
-        customer = Customer.query.get(payment.customer_id)
-        if customer:
-            customer_payments[customer.id]["total"] += payment.amount
-            customer_payments[customer.id]["count"] += 1
-            customer_payments[customer.id]["name"] = customer.name
-            customer_payments[customer.id]["city"] = customer.city
+        if payment.customer:
+            customer_payments[payment.customer_id]["total"] += payment.amount
+            customer_payments[payment.customer_id]["count"] += 1
+            customer_payments[payment.customer_id]["name"] = payment.customer.name
+            customer_payments[payment.customer_id]["city"] = payment.customer.city
 
     top_customers = [
         {
@@ -798,19 +844,20 @@ def analytics():
     payments_this_week = sum(
         1 for p in all_payments if p.payment_date >= seven_days_ago
     )
-    new_customers = sum(
-        1
-        for c in all_customers
-        if c.created_at and c.created_at.date() >= thirty_days_ago
-    )
 
-    # City breakdown
-    city_counts = defaultdict(int)
-    for customer in all_customers:
-        if customer.city:
-            city_counts[customer.city] += 1
+    # New customers count using efficient query
+    new_customers = Customer.query.filter(
+        Customer.created_at != None,
+        Customer.created_at >= datetime.combine(thirty_days_ago, datetime.min.time())
+    ).count()
 
-    cities = [{"name": city, "count": count} for city, count in city_counts.items()]
+    # City breakdown using efficient query
+    city_counts = db.session.query(
+        Customer.city,
+        db.func.count(Customer.id)
+    ).filter(Customer.city != None).group_by(Customer.city).all()
+
+    cities = [{"name": city, "count": count} for city, count in city_counts]
     cities.sort(key=lambda x: x["count"], reverse=True)
 
     # Revenue over time (last 30 days)
@@ -829,10 +876,13 @@ def analytics():
         revenue_labels.append(date_str)
         revenue_data.append(float(revenue_by_date.get(date_str, 0)))
 
-    # Customer distribution
-    paid_up = sum(1 for c in all_customers if c.balance == 0 and c.last_visit)
-    with_balance = len(outstanding_customers)
-    never_visited = sum(1 for c in all_customers if not c.last_visit)
+    # Customer distribution - use efficient queries
+    paid_up = Customer.query.filter(
+        Customer.balance == 0,
+        Customer.last_visit != None
+    ).count()
+    with_balance = outstanding_count
+    never_visited = Customer.query.filter(Customer.last_visit == None).count()
     customer_distribution = [paid_up, with_balance, never_visited]
 
     # Payment analysis
@@ -896,10 +946,10 @@ def analytics():
     )
 
 
-# Initialize database
-@app.before_request
-def create_tables():
-    if not hasattr(app, "db_initialized"):
+# Initialize database - runs once at startup
+def init_db():
+    """Initialize database tables and fix any data issues"""
+    with app.app_context():
         db.create_all()
 
         # Fix any None balances
@@ -910,134 +960,140 @@ def create_tables():
             customer.balance = 0.0
         if customers_with_none_balance:
             db.session.commit()
+            logger.info(f"Fixed {len(customers_with_none_balance)} customers with None balance")
 
         # Fix any None created_at dates
         customers_with_none_created = Customer.query.filter(
             Customer.created_at == None
         ).all()
         for customer in customers_with_none_created:
-            customer.created_at = datetime.utcnow()
+            customer.created_at = datetime.now(timezone.utc)
         if customers_with_none_created:
             db.session.commit()
-
-        app.db_initialized = True
+            logger.info(f"Fixed {len(customers_with_none_created)} customers with None created_at")
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
+    init_db()
 
-        # Add sample data if database is empty
-        if Customer.query.count() == 0:
-            print("Adding sample data...")
+    # Check if we're in development mode
+    debug_mode = os.environ.get("FLASK_ENV") == "development" or os.environ.get("FLASK_DEBUG") == "1"
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", 5000))
 
-            # Create customers
-            sample_customers = [
-                Customer(
-                    name="ABC Convenience",
-                    city="Springfield",
-                    balance=45.50,
-                    last_visit=datetime.now().date() - timedelta(days=5),
-                ),
-                Customer(
-                    name="Joe's Market",
-                    city="Shelbyville",
-                    balance=0,
-                    last_visit=datetime.now().date() - timedelta(days=2),
-                ),
-                Customer(
-                    name="Quick Stop",
-                    city="Springfield",
-                    balance=125.00,
-                    last_visit=datetime.now().date() - timedelta(days=35),
-                ),
-                Customer(
-                    name="Corner Store", city="Capital City", balance=0, last_visit=None
-                ),
-                Customer(
-                    name="Main Street Deli",
-                    city="Springfield",
-                    balance=75.00,
-                    last_visit=datetime.now().date() - timedelta(days=15),
-                ),
-                Customer(
-                    name="Park Plaza Store",
-                    city="Shelbyville",
-                    balance=0,
-                    last_visit=datetime.now().date() - timedelta(days=8),
-                ),
-            ]
-            db.session.add_all(sample_customers)
-            db.session.commit()
+    # Add sample data if database is empty (development only)
+    if debug_mode:
+        with app.app_context():
+            if Customer.query.count() == 0:
+                print("Adding sample data...")
 
-            # Create today's route
-            today = datetime.now().date()
-            today_stops = [
-                RouteStop(
-                    customer_id=sample_customers[0].id,
-                    route_date=today,
-                    sequence=1,
-                    completed=True,
-                ),
-                RouteStop(
-                    customer_id=sample_customers[1].id,
-                    route_date=today,
-                    sequence=2,
-                    completed=True,
-                ),
-                RouteStop(
-                    customer_id=sample_customers[4].id,
-                    route_date=today,
-                    sequence=3,
-                    completed=False,
-                ),
-                RouteStop(
-                    customer_id=sample_customers[5].id,
-                    route_date=today,
-                    sequence=4,
-                    completed=False,
-                ),
-            ]
-            db.session.add_all(today_stops)
+                # Create customers
+                sample_customers = [
+                    Customer(
+                        name="ABC Convenience",
+                        city="Springfield",
+                        balance=45.50,
+                        last_visit=datetime.now().date() - timedelta(days=5),
+                    ),
+                    Customer(
+                        name="Joe's Market",
+                        city="Shelbyville",
+                        balance=0,
+                        last_visit=datetime.now().date() - timedelta(days=2),
+                    ),
+                    Customer(
+                        name="Quick Stop",
+                        city="Springfield",
+                        balance=125.00,
+                        last_visit=datetime.now().date() - timedelta(days=35),
+                    ),
+                    Customer(
+                        name="Corner Store", city="Capital City", balance=0, last_visit=None
+                    ),
+                    Customer(
+                        name="Main Street Deli",
+                        city="Springfield",
+                        balance=75.00,
+                        last_visit=datetime.now().date() - timedelta(days=15),
+                    ),
+                    Customer(
+                        name="Park Plaza Store",
+                        city="Shelbyville",
+                        balance=0,
+                        last_visit=datetime.now().date() - timedelta(days=8),
+                    ),
+                ]
+                db.session.add_all(sample_customers)
+                db.session.commit()
 
-            # Create a future route (tomorrow)
-            tomorrow = today + timedelta(days=1)
-            tomorrow_stops = [
-                RouteStop(
-                    customer_id=sample_customers[2].id,
-                    route_date=tomorrow,
-                    sequence=1,
-                    completed=False,
-                ),
-            ]
-            db.session.add_all(tomorrow_stops)
+                # Create today's route
+                today = datetime.now().date()
+                today_stops = [
+                    RouteStop(
+                        customer_id=sample_customers[0].id,
+                        route_date=today,
+                        sequence=1,
+                        completed=True,
+                    ),
+                    RouteStop(
+                        customer_id=sample_customers[1].id,
+                        route_date=today,
+                        sequence=2,
+                        completed=True,
+                    ),
+                    RouteStop(
+                        customer_id=sample_customers[4].id,
+                        route_date=today,
+                        sequence=3,
+                        completed=False,
+                    ),
+                    RouteStop(
+                        customer_id=sample_customers[5].id,
+                        route_date=today,
+                        sequence=4,
+                        completed=False,
+                    ),
+                ]
+                db.session.add_all(today_stops)
 
-            # Add some payment history
-            sample_payments = [
-                Payment(
-                    customer_id=sample_customers[0].id,
-                    amount=50.00,
-                    payment_date=today - timedelta(days=10),
-                ),
-                Payment(
-                    customer_id=sample_customers[1].id,
-                    amount=120.00,
-                    payment_date=today - timedelta(days=5),
-                ),
-                Payment(
-                    customer_id=sample_customers[4].id,
-                    amount=25.00,
-                    payment_date=today - timedelta(days=20),
-                ),
-                Payment(
-                    customer_id=sample_customers[2].id,
-                    amount=75.00,
-                    payment_date=today - timedelta(days=15),
-                ),
-            ]
-            db.session.add_all(sample_payments)
+                # Create a future route (tomorrow)
+                tomorrow = today + timedelta(days=1)
+                tomorrow_stops = [
+                    RouteStop(
+                        customer_id=sample_customers[2].id,
+                        route_date=tomorrow,
+                        sequence=1,
+                        completed=False,
+                    ),
+                ]
+                db.session.add_all(tomorrow_stops)
 
-            db.session.commit()
-            print("Sample data added with routes and payments!")
+                # Add some payment history
+                sample_payments = [
+                    Payment(
+                        customer_id=sample_customers[0].id,
+                        amount=50.00,
+                        payment_date=today - timedelta(days=10),
+                    ),
+                    Payment(
+                        customer_id=sample_customers[1].id,
+                        amount=120.00,
+                        payment_date=today - timedelta(days=5),
+                    ),
+                    Payment(
+                        customer_id=sample_customers[4].id,
+                        amount=25.00,
+                        payment_date=today - timedelta(days=20),
+                    ),
+                    Payment(
+                        customer_id=sample_customers[2].id,
+                        amount=75.00,
+                        payment_date=today - timedelta(days=15),
+                    ),
+                ]
+                db.session.add_all(sample_payments)
 
-    app.run(debug=True, host="0.0.0.0", port=5000)
+                db.session.commit()
+                print("Sample data added with routes and payments!")
+
+    app.run(debug=debug_mode, host=host, port=port)

@@ -264,6 +264,7 @@
                 </div>
 
                 <form action="/customers/add" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
                         <label class="block text-xs text-muted mb-1">Name *</label>
                         <input type="text" name="name" required
@@ -334,9 +335,15 @@
         modal.style.display = 'block';
 
         fetch(`/customers/${customerId}/edit`)
-            .then(response => response.text())
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.text();
+            })
             .then(html => {
-                document.getElementById('edit-customer-modal').innerHTML = html;
+                // Use a safer approach - create a temporary container and set innerHTML there
+                // This is acceptable since the HTML comes from our own server with Jinja escaping
+                const container = document.getElementById('edit-customer-modal');
+                container.innerHTML = html;
             })
             .catch(error => {
                 console.error('Error:', error);

@@ -168,6 +168,7 @@
                 </div>
 
                 <form id="payment-form" action="/balances/record-payment" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" name="customer_id" id="payment-customer-id">
 
                     <div class="bg-panel2 rounded-lg p-4">

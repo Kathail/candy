@@ -5,8 +5,9 @@ Usage: python3 import_customers.py customers_cleaned.csv
 """
 
 import csv
+import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import your Flask app
 from app import Customer, Payment, RouteStop, app, db
@@ -31,60 +32,80 @@ def clear_customers():
 
 def import_customers(csv_file):
     """Import customers from cleaned CSV"""
+    # Check if file exists
+    if not os.path.exists(csv_file):
+        print(f"❌ Error: File not found: {csv_file}")
+        sys.exit(1)
+
     with app.app_context():
         print(f"\n📥 Importing customers from {csv_file}...")
 
         imported = 0
         skipped = 0
 
-        with open(csv_file, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
+        try:
+            with open(csv_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
 
-            for row in reader:
-                # Check if customer already exists (by name + phone)
-                existing = Customer.query.filter_by(
-                    name=row["name"], phone=row["phone"]
-                ).first()
+                # Validate CSV has required columns
+                required_columns = {"name", "address", "city", "phone"}
+                if not required_columns.issubset(set(reader.fieldnames or [])):
+                    print(f"❌ Error: CSV missing required columns. Expected: {required_columns}")
+                    sys.exit(1)
 
-                if existing:
-                    skipped += 1
-                    continue
+                for row in reader:
+                    # Check if customer already exists (by name + phone)
+                    existing = Customer.query.filter_by(
+                        name=row["name"], phone=row["phone"]
+                    ).first()
 
-                customer = Customer(
-                    name=row["name"],
-                    address=row["address"],
-                    city=row["city"],
-                    phone=row["phone"],
-                    balance=0.0,
-                    created_at=datetime.utcnow(),
-                )
+                    if existing:
+                        skipped += 1
+                        continue
 
-                db.session.add(customer)
-                imported += 1
+                    customer = Customer(
+                        name=row["name"],
+                        address=row["address"],
+                        city=row["city"],
+                        phone=row["phone"],
+                        balance=0.0,
+                        created_at=datetime.now(timezone.utc),
+                    )
 
-                # Commit in batches of 50
-                if imported % 50 == 0:
-                    db.session.commit()
-                    print(f"   Imported {imported} customers...")
+                    db.session.add(customer)
+                    imported += 1
 
-        # Final commit
-        db.session.commit()
+                    # Commit in batches of 50
+                    if imported % 50 == 0:
+                        db.session.commit()
+                        print(f"   Imported {imported} customers...")
 
-        print(f"\n✅ Import complete!")
-        print(f"   Imported: {imported} customers")
-        print(f"   Skipped: {skipped} duplicates")
-        print(f"   Total in database: {Customer.query.count()}")
+            # Final commit
+            db.session.commit()
 
-        # Show city breakdown
-        print(f"\n📍 Customers by city:")
-        from collections import defaultdict
+            print(f"\n✅ Import complete!")
+            print(f"   Imported: {imported} customers")
+            print(f"   Skipped: {skipped} duplicates")
+            print(f"   Total in database: {Customer.query.count()}")
 
-        cities = defaultdict(int)
-        for customer in Customer.query.all():
-            cities[customer.city or "Unknown"] += 1
+            # Show city breakdown
+            print(f"\n📍 Customers by city:")
+            from collections import defaultdict
 
-        for city, count in sorted(cities.items(), key=lambda x: -x[1])[:15]:
-            print(f"   {city:25} {count:3}")
+            cities = defaultdict(int)
+            for customer in Customer.query.all():
+                cities[customer.city or "Unknown"] += 1
+
+            for city, count in sorted(cities.items(), key=lambda x: -x[1])[:15]:
+                print(f"   {city:25} {count:3}")
+
+        except csv.Error as e:
+            print(f"❌ Error reading CSV file: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Error during import: {e}")
+            db.session.rollback()
+            sys.exit(1)
 
 
 if __name__ == "__main__":

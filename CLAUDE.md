@@ -12,20 +12,30 @@ Candy Route Planner is a Flask web application for managing sales routes, custom
 # Install dependencies
 pip install -r requirements.txt
 
-# Run development server
-python app.py
+# Run development server (debug mode)
+FLASK_ENV=development python app.py
 
 # Run with gunicorn (production)
 gunicorn app:app
 
 # Import customer data from CSV
-python import_customers.py                    # Import with default behavior
-python import_customers.py --clear-only       # Only clear existing data
-python import_customers.py --no-clear         # Import without clearing
+python import_customers.py customers_cleaned.csv              # Import with clear
+python import_customers.py customers_cleaned.csv --clear-only # Only clear data
+python import_customers.py customers_cleaned.csv --no-clear   # Import without clearing
 
 # Clean customer CSV data (removes duplicates, standardizes cities, cleans phone numbers)
 python clean_customers.py
 ```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection URL | `sqlite:///candy_route.db` |
+| `SECRET_KEY` | Flask secret key for sessions/CSRF | dev key (change in prod) |
+| `FLASK_ENV` | Set to `development` for debug mode | production |
+| `FLASK_HOST` | Host to bind to | `127.0.0.1` |
+| `FLASK_PORT` | Port to bind to | `5000` |
 
 ## Architecture
 

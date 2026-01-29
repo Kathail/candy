@@ -145,51 +145,84 @@ output_file = "customers_cleaned.csv"
 customers_dict = {}
 duplicates = 0
 
-print("Reading customers...")
-with open(input_file, "r", encoding="utf-8") as f:
-    reader = csv.DictReader(f)
+def main():
+    global duplicates
 
-    for row in reader:
-        name = row["Name"].strip()
-        address = row["Address"].strip()
-        phone = row["Phone"].strip()
+    # Check if input file exists
+    import os
+    if not os.path.exists(input_file):
+        print(f"❌ Error: Input file not found: {input_file}")
+        return 1
 
-        city = extract_city(address)
-        phone_clean = clean_phone(phone)
+    print("Reading customers...")
+    try:
+        with open(input_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
 
-        # Create unique key (name + phone)
-        key = f"{normalize_name(name)}_{phone_clean}"
+            # Validate CSV has required columns
+            required_columns = {"Name", "Address", "Phone"}
+            if not required_columns.issubset(set(reader.fieldnames or [])):
+                print(f"❌ Error: CSV missing required columns. Expected: {required_columns}")
+                return 1
 
-        if key in customers_dict:
-            duplicates += 1
-        else:
-            customers_dict[key] = {
-                "name": name,
-                "address": address,
-                "city": city,
-                "phone": phone_clean,
-            }
+            for row in reader:
+                name = row["Name"].strip()
+                address = row["Address"].strip()
+                phone = row["Phone"].strip()
 
-print(f"Writing cleaned data...")
-with open(output_file, "w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=["name", "address", "city", "phone"])
-    writer.writeheader()
+                city = extract_city(address)
+                phone_clean = clean_phone(phone)
 
-    for customer in sorted(
-        customers_dict.values(), key=lambda x: (x["city"], x["name"])
-    ):
-        writer.writerow(customer)
+                # Create unique key (name + phone)
+                key = f"{normalize_name(name)}_{phone_clean}"
 
-# Stats
-cities = defaultdict(int)
-for c in customers_dict.values():
-    cities[c["city"]] += 1
+                if key in customers_dict:
+                    duplicates += 1
+                else:
+                    customers_dict[key] = {
+                        "name": name,
+                        "address": address,
+                        "city": city,
+                        "phone": phone_clean,
+                    }
 
-print(f"\n✓ Done!")
-print(f"  Duplicates removed: {duplicates}")
-print(f"  Unique customers: {len(customers_dict)}")
-print(f"  Cities found: {len(cities)}")
-print(f"\nTop 15 cities:")
-for city, count in sorted(cities.items(), key=lambda x: -x[1])[:15]:
-    print(f"  {city:25} {count:3}")
-print(f"\n✓ Saved to: {output_file}")
+    except csv.Error as e:
+        print(f"❌ Error reading CSV file: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error processing input file: {e}")
+        return 1
+
+    print(f"Writing cleaned data...")
+    try:
+        with open(output_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["name", "address", "city", "phone"])
+            writer.writeheader()
+
+            for customer in sorted(
+                customers_dict.values(), key=lambda x: (x["city"], x["name"])
+            ):
+                writer.writerow(customer)
+
+    except Exception as e:
+        print(f"❌ Error writing output file: {e}")
+        return 1
+
+    # Stats
+    cities = defaultdict(int)
+    for c in customers_dict.values():
+        cities[c["city"]] += 1
+
+    print(f"\n✓ Done!")
+    print(f"  Duplicates removed: {duplicates}")
+    print(f"  Unique customers: {len(customers_dict)}")
+    print(f"  Cities found: {len(cities)}")
+    print(f"\nTop 15 cities:")
+    for city, count in sorted(cities.items(), key=lambda x: -x[1])[:15]:
+        print(f"  {city:25} {count:3}")
+    print(f"\n✓ Saved to: {output_file}")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())
