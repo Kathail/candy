@@ -326,7 +326,14 @@ def admin_import_leads():
                     skipped += 1
                     continue
 
+                # Clean phone number
                 phone = row.get("phone", "").strip()
+                if phone:
+                    if phone.startswith("Phone Number"):
+                        phone = phone.replace("Phone Number", "").strip()
+                    if phone.lower() in ["call", "phone", "n/a", "none", "-", ""]:
+                        phone = None
+                phone = phone or None
 
                 # Check for duplicate by name+phone
                 existing = Customer.query.filter_by(name=name, phone=phone if phone else None).first()

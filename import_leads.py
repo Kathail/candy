@@ -56,7 +56,16 @@ def import_leads(csv_file, confirm=True):
                             skipped += 1
                             continue
 
-                        phone = row.get("phone", "").strip() or None
+                        # Clean phone number
+                        phone = row.get("phone", "").strip()
+                        if phone:
+                            # Remove "Phone Number" prefix
+                            if phone.startswith("Phone Number"):
+                                phone = phone.replace("Phone Number", "").strip()
+                            # Clear useless values
+                            if phone.lower() in ["call", "phone", "n/a", "none", "-", ""]:
+                                phone = None
+                        phone = phone or None
                         address = row.get("address", "").strip() or None
                         city = row.get("city", "").strip() or None
 
