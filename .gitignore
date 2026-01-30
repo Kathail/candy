@@ -47,3 +47,8 @@ leads.csv
 # Local documentation
 # =========================
 docs/
+
+# =========================
+# Backup folder
+# =========================
+backup/
