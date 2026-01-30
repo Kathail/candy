@@ -35,6 +35,69 @@
         </div>
     </div>
 
+    <!-- Tax Exempt Section -->
+    {% if tax_exempt_week.count > 0 or tax_exempt_month.count > 0 or tax_exempt_quarter.count > 0 or tax_exempt_year.count > 0 %}
+    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6 border-l-4 border-warn">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="text-warn text-lg">⚡</span>
+            <h2 class="text-lg font-semibold">Tax Exempt Sales</h2>
+            <span class="text-xs text-muted">(included in totals above)</span>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
+            <div class="bg-panel2 rounded-lg p-3">
+                <div class="text-xs text-muted mb-1">This Week</div>
+                <div class="text-lg font-semibold text-warn">${{ "%.2f"|format(tax_exempt_week.total) }}</div>
+                <div class="text-xs text-muted">{{ tax_exempt_week.count }} payments</div>
+            </div>
+            <div class="bg-panel2 rounded-lg p-3">
+                <div class="text-xs text-muted mb-1">This Month</div>
+                <div class="text-lg font-semibold text-warn">${{ "%.2f"|format(tax_exempt_month.total) }}</div>
+                <div class="text-xs text-muted">{{ tax_exempt_month.count }} payments</div>
+            </div>
+            <div class="bg-panel2 rounded-lg p-3">
+                <div class="text-xs text-muted mb-1">This Quarter</div>
+                <div class="text-lg font-semibold text-warn">${{ "%.2f"|format(tax_exempt_quarter.total) }}</div>
+                <div class="text-xs text-muted">{{ tax_exempt_quarter.count }} payments</div>
+            </div>
+            <div class="bg-panel2 rounded-lg p-3">
+                <div class="text-xs text-muted mb-1">This Year</div>
+                <div class="text-lg font-semibold text-warn">${{ "%.2f"|format(tax_exempt_year.total) }}</div>
+                <div class="text-xs text-muted">{{ tax_exempt_year.count }} payments</div>
+            </div>
+        </div>
+
+        <!-- Recent Tax Exempt Payments -->
+        <div x-data="{ showPayments: false }">
+            <button @click="showPayments = !showPayments"
+                    class="text-xs text-warn hover:text-yellow-400 flex items-center gap-1 transition">
+                <span x-text="showPayments ? '▼ Hide' : '▶ Show'"></span>
+                recent tax exempt payments
+            </button>
+
+            <div x-show="showPayments" x-cloak class="mt-3 space-y-2 max-h-64 overflow-y-auto">
+                {% for payment in tax_exempt_month.payments[:15] %}
+                <div class="flex items-center justify-between p-2 bg-panel2 rounded-lg text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-warn/20 text-warn px-1.5 py-0.5 rounded text-[10px] font-semibold">TAX EXEMPT</span>
+                        <div>
+                            <div class="font-semibold">{{ payment.customer.name }}</div>
+                            <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
+                        </div>
+                    </div>
+                    <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
+                </div>
+                {% endfor %}
+                {% if tax_exempt_month.payments|length > 15 %}
+                <div class="text-xs text-muted text-center py-2">
+                    + {{ tax_exempt_month.payments|length - 15 }} more this month
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Quick Export Buttons -->
     <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6">
         <h2 class="text-lg font-semibold mb-4">Quick Exports</h2>

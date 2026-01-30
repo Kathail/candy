@@ -2,11 +2,16 @@
     {% for c in customers %}
     <tr class="border-t border-border hover:bg-panel2 transition">
         <td class="px-4 py-3">
-            <button
-                onclick="openEditModal({{ c.id }})"
-                class="font-semibold text-brand hover:underline text-left">
-                {{ c.name }}
-            </button>
+            <div class="flex items-center gap-2">
+                <button
+                    onclick="openEditModal({{ c.id }})"
+                    class="font-semibold text-brand hover:underline text-left">
+                    {{ c.name }}
+                </button>
+                {% if c.tax_exempt %}
+                <span class="bg-warn/20 text-warn px-1 py-0.5 rounded text-[10px] font-semibold shrink-0">TAX EX</span>
+                {% endif %}
+            </div>
             <div class="text-xs text-muted mt-0.5">{{ c.city }}</div>
         </td>
 

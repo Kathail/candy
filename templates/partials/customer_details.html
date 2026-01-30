@@ -2,7 +2,12 @@
     <!-- Header -->
     <div class="flex items-start justify-between">
         <div>
-            <h3 class="text-lg font-semibold">{{ customer.name }}</h3>
+            <div class="flex items-center gap-2">
+                <h3 class="text-lg font-semibold">{{ customer.name }}</h3>
+                {% if customer.tax_exempt %}
+                <span class="bg-warn/20 text-warn px-1.5 py-0.5 rounded text-[10px] font-semibold">TAX EXEMPT</span>
+                {% endif %}
+            </div>
             <p class="text-sm text-muted">{{ customer.city }}</p>
         </div>
         <a
@@ -175,7 +180,12 @@
             <div
                 class="flex items-center justify-between text-xs bg-panel2 p-2 rounded"
             >
-                <span>{{ payment.payment_date.strftime('%b %d, %Y') }}</span>
+                <div class="flex items-center gap-2">
+                    {% if customer.tax_exempt %}
+                    <span class="bg-warn/20 text-warn px-1 py-0.5 rounded text-[10px] font-semibold shrink-0">TAX EX</span>
+                    {% endif %}
+                    <span>{{ payment.payment_date.strftime('%b %d, %Y') }}</span>
+                </div>
                 <span class="font-semibold text-good"
                     >${{ "%.2f"|format(payment.amount) }}</span
                 >

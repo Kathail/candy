@@ -231,12 +231,17 @@
             {% if sorted_payments %}
                 {% for payment in sorted_payments[:10] %}
                 <div class="flex items-center justify-between p-2 bg-panel2 rounded-lg text-xs">
-                    <div>
-                        <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
-                        <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
-                        {% if payment.notes %}
-                        <div class="text-muted truncate max-w-[150px]">{{ payment.notes }}</div>
+                    <div class="flex items-center gap-2">
+                        {% if customer.tax_exempt %}
+                        <span class="bg-warn/20 text-warn px-1 py-0.5 rounded text-[10px] font-semibold shrink-0">TAX EX</span>
                         {% endif %}
+                        <div>
+                            <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
+                            <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
+                            {% if payment.notes %}
+                            <div class="text-muted truncate max-w-[150px]">{{ payment.notes }}</div>
+                            {% endif %}
+                        </div>
                     </div>
                     <form action="/customers/{{ customer.id }}/delete-payment/{{ payment.id }}" method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>

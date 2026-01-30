@@ -1963,84 +1963,6 @@ def admin_reimport_customers():
         return jsonify({"error": str(e)}), 500
 
 
-# Tax Exempt Sales Page
-@app.route("/tax-exempt")
-@login_required
-def tax_exempt():
-    """View tax-exempt customers and their sales"""
-    today = datetime.now().date()
-    query = request.args.get("query", "")
-    period = request.args.get("period", "month")
-
-    # Calculate date range based on period
-    if period == "week":
-        start_date = today - timedelta(days=today.weekday())
-        end_date = start_date + timedelta(days=6)
-    elif period == "quarter":
-        quarter = (today.month - 1) // 3
-        start_date = today.replace(month=quarter * 3 + 1, day=1)
-        if quarter == 3:
-            end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            end_date = today.replace(month=(quarter + 1) * 3 + 1, day=1) - timedelta(days=1)
-    elif period == "year":
-        start_date = today.replace(month=1, day=1)
-        end_date = today.replace(month=12, day=31)
-    else:  # month
-        start_date = today.replace(day=1)
-        if today.month == 12:
-            end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
-
-    # Get tax-exempt customers
-    tax_exempt_query = Customer.query.filter_by(tax_exempt=True, status='active')
-    if query:
-        tax_exempt_query = tax_exempt_query.filter(
-            db.or_(
-                Customer.name.ilike(f"%{query}%"),
-                Customer.city.ilike(f"%{query}%")
-            )
-        )
-    tax_exempt_customers = tax_exempt_query.order_by(Customer.name).all()
-
-    # Get payments for tax-exempt customers in the selected period
-    customer_ids = [c.id for c in tax_exempt_customers]
-    payments = []
-    if customer_ids:
-        payments = Payment.query.filter(
-            Payment.customer_id.in_(customer_ids),
-            Payment.payment_date >= start_date,
-            Payment.payment_date <= end_date
-        ).order_by(Payment.payment_date.desc()).all()
-
-    # Calculate stats
-    total_payments = sum(p.amount for p in payments)
-    payment_count = len(payments)
-    total_balance = sum(c.balance for c in tax_exempt_customers)
-
-    # Group payments by customer
-    customer_payments = {}
-    for p in payments:
-        if p.customer_id not in customer_payments:
-            customer_payments[p.customer_id] = []
-        customer_payments[p.customer_id].append(p)
-
-    return render_template(
-        "tax_exempt.html",
-        customers=tax_exempt_customers,
-        payments=payments,
-        customer_payments=customer_payments,
-        total_payments=total_payments,
-        payment_count=payment_count,
-        total_balance=total_balance,
-        period=period,
-        start_date=start_date,
-        end_date=end_date,
-        now=today
-    )
-
-
 # Reports Page
 @app.route("/reports")
 @login_required
@@ -2072,7 +1994,7 @@ def reports():
     year_start = today.replace(month=1, day=1)
     year_end = today.replace(month=12, day=31)
 
-    # Get quick stats
+    # Get quick stats (all payments)
     def get_period_stats(start, end):
         payments = Payment.query.filter(
             Payment.payment_date >= start,
@@ -2086,6 +2008,27 @@ def reports():
     month_stats = get_period_stats(month_start, month_end)
     quarter_stats = get_period_stats(quarter_start, quarter_end)
     year_stats = get_period_stats(year_start, year_end)
+
+    # Get tax-exempt stats
+    tax_exempt_customers = Customer.query.filter_by(tax_exempt=True, status='active').all()
+    tax_exempt_ids = [c.id for c in tax_exempt_customers]
+
+    def get_tax_exempt_stats(start, end):
+        if not tax_exempt_ids:
+            return {"total": 0, "count": 0, "payments": []}
+        payments = Payment.query.filter(
+            Payment.customer_id.in_(tax_exempt_ids),
+            Payment.payment_date >= start,
+            Payment.payment_date <= end
+        ).order_by(Payment.payment_date.desc()).all()
+        total = sum(p.amount for p in payments)
+        count = len(payments)
+        return {"total": total, "count": count, "payments": payments}
+
+    tax_exempt_week = get_tax_exempt_stats(week_start, week_end)
+    tax_exempt_month = get_tax_exempt_stats(month_start, month_end)
+    tax_exempt_quarter = get_tax_exempt_stats(quarter_start, quarter_end)
+    tax_exempt_year = get_tax_exempt_stats(year_start, year_end)
 
     return render_template(
         "reports.html",
@@ -2102,6 +2045,11 @@ def reports():
         month_stats=month_stats,
         quarter_stats=quarter_stats,
         year_stats=year_stats,
+        tax_exempt_customers=tax_exempt_customers,
+        tax_exempt_week=tax_exempt_week,
+        tax_exempt_month=tax_exempt_month,
+        tax_exempt_quarter=tax_exempt_quarter,
+        tax_exempt_year=tax_exempt_year,
     )
 
 

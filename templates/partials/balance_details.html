@@ -6,6 +6,9 @@
             <p class="text-sm text-muted">{{ customer.city }}</p>
         </div>
         <div class="flex items-center gap-2">
+            {% if customer.tax_exempt %}
+            <span class="text-xs font-semibold bg-warn/20 text-warn px-2 py-1 rounded">TAX EXEMPT</span>
+            {% endif %}
             <span
                 class="text-xs font-semibold bg-warn/20 text-warn px-2 py-1 rounded"
                 >⚠ Outstanding</span
@@ -107,13 +110,18 @@
             <div
                 class="flex items-center justify-between text-sm bg-panel2 p-2 rounded"
             >
-                <div>
-                    <span class="text-xs"
-                        >{{ payment.payment_date.strftime('%b %d, %Y') }}</span
-                    >
-                    {% if payment.receipt_number %}
-                    <span class="text-xs text-muted ml-1">({{ payment.receipt_number }})</span>
+                <div class="flex items-center gap-2">
+                    {% if customer.tax_exempt %}
+                    <span class="bg-warn/20 text-warn px-1 py-0.5 rounded text-[10px] font-semibold shrink-0">TAX EX</span>
                     {% endif %}
+                    <div>
+                        <span class="text-xs"
+                            >{{ payment.payment_date.strftime('%b %d, %Y') }}</span
+                        >
+                        {% if payment.receipt_number %}
+                        <span class="text-xs text-muted ml-1">({{ payment.receipt_number }})</span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="font-semibold text-good"

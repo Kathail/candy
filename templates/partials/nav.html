@@ -153,25 +153,6 @@
         </svg>
         <span>Reports</span>
     </a>
-    <a
-        href="/tax-exempt"
-        class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 {% if request.path.startswith('/tax-exempt') %}bg-brand text-white shadow-lg shadow-brand/20{% else %}text-slate-300 hover:bg-panel hover:text-slate-100{% endif %}"
-    >
-        <svg
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            class="w-5 h-5 flex-shrink-0"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
-            />
-        </svg>
-        <span>Tax Exempt</span>
-    </a>
 
     {% if current_user.is_authenticated and current_user.is_admin() %}
     <!-- Admin Section -->
