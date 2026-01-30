@@ -605,11 +605,21 @@ def customers():
 @login_required
 def customer_details(customer_id):
     customer = Customer.query.get_or_404(customer_id)
-    return render_template(
-        "partials/customer_details.html",
-        customer=customer,
-        now=datetime.now().date(),
-    )
+    now = datetime.now().date()
+
+    # Check if this is an HTMX request (partial) or direct browser request (full page)
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/customer_details.html",
+            customer=customer,
+            now=now,
+        )
+    else:
+        return render_template(
+            "customer_profile.html",
+            customer=customer,
+            now=now,
+        )
 
 
 @app.route("/customers/<int:customer_id>/edit")
@@ -748,7 +758,11 @@ def customer_add_payment(customer_id):
     logger.info(f"Payment recorded for {customer.name}: ${amount:.2f}")
     flash(f"Payment of ${amount:.2f} recorded", "success")
 
-    return redirect(url_for("customers"))
+    # Handle custom redirect (e.g., from route page)
+    redirect_to = request.form.get("redirect_to")
+    if redirect_to:
+        return redirect(redirect_to)
+    return redirect(url_for("customer_details", customer_id=customer.id))
 
 
 @app.route("/customers/<int:customer_id>/delete-payment/<int:payment_id>", methods=["POST"])
@@ -771,7 +785,7 @@ def customer_delete_payment(customer_id, payment_id):
     logger.info(f"Payment deleted for {customer.name}: ${payment.amount:.2f}")
     flash(f"Payment of ${payment.amount:.2f} deleted", "success")
 
-    return redirect(url_for("customers"))
+    return redirect(url_for("customer_details", customer_id=customer.id))
 
 
 # Leads Page

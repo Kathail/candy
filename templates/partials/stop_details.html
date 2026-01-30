@@ -107,6 +107,25 @@
     </div>
     {% endif %}
 
+    <!-- Transaction History -->
+    {% if stop.customer.payments %}
+    <div class="py-3 border-t border-border">
+        <div class="text-xs text-muted mb-2">Recent Payments</div>
+        <div class="space-y-1 max-h-24 overflow-y-auto">
+            {% set sorted_payments = stop.customer.payments|sort(attribute='payment_date', reverse=true) %}
+            {% for payment in sorted_payments[:3] %}
+            <div class="flex items-center justify-between text-xs bg-panel2 p-2 rounded">
+                <span>{{ payment.payment_date.strftime('%b %d, %Y') }}</span>
+                <span class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</span>
+            </div>
+            {% endfor %}
+            {% if sorted_payments|length > 3 %}
+            <div class="text-xs text-muted text-center py-1">+ {{ sorted_payments|length - 3 }} more</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Actions -->
     <div class="pt-3 border-t border-border space-y-2">
         {% if not stop.completed %}
@@ -136,12 +155,42 @@
         >
             Undo Complete
         </button>
-        {% endif %} {% if stop.customer.balance > 0 %}
+        {% endif %}
+
+        {% if stop.customer.balance > 0 %}
+        <!-- Quick Payment Form -->
+        <div id="quick-payment-{{ stop.id }}" class="hidden">
+            <form action="/customers/{{ stop.customer.id }}/add-payment" method="POST" class="space-y-2 p-3 bg-panel2 rounded-lg">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="redirect_to" value="/route"/>
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <span class="absolute left-2 top-1/2 -translate-y-1/2 text-muted text-sm">$</span>
+                        <input type="number"
+                               name="amount"
+                               step="0.01"
+                               min="0.01"
+                               value="{{ "%.2f"|format(stop.customer.balance) }}"
+                               required
+                               class="w-full bg-panel border border-border rounded-md pl-6 pr-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand">
+                    </div>
+                    <button type="submit" class="bg-good hover:bg-green-600 text-white text-sm font-semibold px-3 rounded-md transition">
+                        Pay
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance }})" class="text-xs bg-brand/20 text-brand px-2 py-1 rounded hover:bg-brand/30">Full</button>
+                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance / 2 }})" class="text-xs bg-panel text-muted px-2 py-1 rounded hover:bg-border">Half</button>
+                    <button type="button" onclick="toggleQuickPayment({{ stop.id }})" class="text-xs text-muted hover:text-white ml-auto">Cancel</button>
+                </div>
+            </form>
+        </div>
         <button
-            onclick="alert('Payment recording feature coming soon!')"
+            id="payment-btn-{{ stop.id }}"
+            onclick="toggleQuickPayment({{ stop.id }})"
             class="w-full bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-3 rounded-md transition"
         >
-            Record Payment
+            💰 Record Payment (${{ "%.2f"|format(stop.customer.balance) }})
         </button>
         {% endif %}
 
@@ -153,3 +202,23 @@
         </a>
     </div>
 </div>
+
+<script>
+function toggleQuickPayment(stopId) {
+    const form = document.getElementById('quick-payment-' + stopId);
+    const btn = document.getElementById('payment-btn-' + stopId);
+    if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
+        btn.classList.add('hidden');
+    } else {
+        form.classList.add('hidden');
+        btn.classList.remove('hidden');
+    }
+}
+
+function setQuickPayment(stopId, amount) {
+    const form = document.getElementById('quick-payment-' + stopId);
+    const input = form.querySelector('input[name="amount"]');
+    input.value = amount.toFixed(2);
+}
+</script>

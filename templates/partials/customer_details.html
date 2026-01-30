@@ -5,12 +5,12 @@
             <h3 class="text-lg font-semibold">{{ customer.name }}</h3>
             <p class="text-sm text-muted">{{ customer.city }}</p>
         </div>
-        <button
-            onclick="alert('Edit customer feature coming soon!')"
+        <a
+            href="/customers/{{ customer.id }}"
             class="text-xs text-brand hover:underline transition"
         >
-            Edit →
-        </button>
+            Full Profile →
+        </a>
     </div>
 
     <!-- Contact Info -->
@@ -187,8 +187,8 @@
 
     <!-- Actions -->
     <div class="pt-3 border-t border-border space-y-2">
-        <button
-            onclick="alert('Add to route feature coming soon!')"
+        <a
+            href="/planner"
             class="w-full bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-3 rounded-md transition flex items-center justify-center gap-2"
         >
             <svg
@@ -204,12 +204,12 @@
                     d="M12 4v16m8-8H4"
                 />
             </svg>
-            Add to Route
-        </button>
+            Schedule Visit
+        </a>
 
         {% if customer.balance > 0 %}
-        <button
-            onclick="alert('Record payment feature coming soon!')"
+        <a
+            href="/customers/{{ customer.id }}"
             class="w-full bg-good hover:bg-green-600 text-white text-sm font-semibold px-4 py-3 rounded-md transition flex items-center justify-center gap-2"
         >
             <svg
@@ -225,8 +225,8 @@
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
             </svg>
-            Record Payment
-        </button>
+            Record Payment (${{ "%.2f"|format(customer.balance) }})
+        </a>
         {% endif %}
 
         <div class="grid grid-cols-2 gap-2">
