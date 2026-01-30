@@ -166,8 +166,8 @@
 
     <!-- Actions -->
     <div class="pt-3 border-t border-border space-y-2">
-        <button
-            onclick="alert('Payment recording feature coming soon! Amount: ${{ \&quot;%.2f\&quot;|format(customer.balance) }}')"
+        <a
+            href="/customers/{{ customer.id }}"
             class="w-full bg-good hover:bg-green-600 text-white text-sm font-semibold px-4 py-3 rounded-md transition flex items-center justify-center gap-2"
         >
             <svg
@@ -184,7 +184,7 @@
                 />
             </svg>
             Record Payment (${{ "%.2f"|format(customer.balance) }})
-        </button>
+        </a>
 
         <div class="grid grid-cols-2 gap-2">
             {% if customer.phone %}
@@ -195,12 +195,12 @@
                 📞 Call
             </a>
             {% endif %}
-            <button
-                onclick="alert('SMS reminder feature coming soon!')"
+            <a
+                href="/customers/{{ customer.id }}"
                 class="bg-panel2 hover:bg-border text-white text-center text-xs font-semibold px-4 py-2 rounded-md transition"
             >
-                📧 Remind
-            </button>
+                📧 Contact
+            </a>
         </div>
 
         <a
