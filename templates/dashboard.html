@@ -67,14 +67,24 @@ content %}
 {% endif %}
 
 <!-- KPI Row -->
-<section class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+<section class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
     <a href="/customers" class="block">
         <div
             class="bg-panel rounded-lg p-3 shadow-soft hover:bg-panel2 transition cursor-pointer h-full"
         >
-            <div class="text-xs text-muted">Total Customers</div>
+            <div class="text-xs text-muted">Customers</div>
             <div class="text-xl font-semibold">{{ total_customers }}</div>
             <div class="text-xs text-brand mt-1">View all →</div>
+        </div>
+    </a>
+
+    <a href="/leads" class="block">
+        <div
+            class="bg-panel rounded-lg p-3 shadow-soft hover:bg-panel2 transition cursor-pointer h-full"
+        >
+            <div class="text-xs text-muted">Leads</div>
+            <div class="text-xl font-semibold text-warn">{{ total_leads }}</div>
+            <div class="text-xs text-brand mt-1">Convert →</div>
         </div>
     </a>
 
@@ -89,11 +99,11 @@ content %}
     </a>
 
     <div class="bg-panel rounded-lg p-3 shadow-soft">
-        <div class="text-xs text-muted">Today's Collections</div>
+        <div class="text-xs text-muted">Collections</div>
         <div class="text-xl font-semibold text-good">
             ${{ todays_collections }}
         </div>
-        <div class="text-xs text-muted mt-1">Collected today</div>
+        <div class="text-xs text-muted mt-1">Today</div>
     </div>
 
     <div class="bg-panel rounded-lg p-3 shadow-soft">

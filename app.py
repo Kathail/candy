@@ -401,6 +401,7 @@ def change_password():
 @login_required
 def dashboard():
     total_customers = Customer.query.filter_by(status='active').count()
+    total_leads = Customer.query.filter_by(status='lead').count()
 
     # Calculate balances efficiently using SQL aggregation (active customers only)
     balance_stats = db.session.query(
@@ -446,6 +447,7 @@ def dashboard():
         outstanding=f"{outstanding:.2f}",
         urgent_customers=urgent_customers,
         total_customers=total_customers,
+        total_leads=total_leads,
         total_owed=f"{total_owed:.2f}",
         todays_collections=f"{todays_collections:.2f}",
         avg_balance=f"{avg_balance:.2f}",
