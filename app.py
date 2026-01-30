@@ -90,6 +90,7 @@ class Customer(db.Model):
     last_visit = db.Column(db.Date, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     status = db.Column(db.String(20), default='active', nullable=False, index=True)  # lead, active, inactive
+    tax_exempt = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
 
 class RouteStop(db.Model):
@@ -709,10 +710,14 @@ def customer_update(customer_id):
         except ValueError:
             return "Invalid balance value", 400
 
+    # Update tax exempt status
+    customer.tax_exempt = request.form.get("tax_exempt") == "on"
+
     db.session.commit()
     logger.info(f"Customer updated: {customer.name}")
 
-    return redirect(url_for("customers"))
+    redirect_to = request.form.get("redirect_to", url_for("customers"))
+    return redirect(redirect_to)
 
 
 @app.route("/customers/<int:customer_id>/delete", methods=["POST"])
@@ -1958,6 +1963,84 @@ def admin_reimport_customers():
         return jsonify({"error": str(e)}), 500
 
 
+# Tax Exempt Sales Page
+@app.route("/tax-exempt")
+@login_required
+def tax_exempt():
+    """View tax-exempt customers and their sales"""
+    today = datetime.now().date()
+    query = request.args.get("query", "")
+    period = request.args.get("period", "month")
+
+    # Calculate date range based on period
+    if period == "week":
+        start_date = today - timedelta(days=today.weekday())
+        end_date = start_date + timedelta(days=6)
+    elif period == "quarter":
+        quarter = (today.month - 1) // 3
+        start_date = today.replace(month=quarter * 3 + 1, day=1)
+        if quarter == 3:
+            end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_date = today.replace(month=(quarter + 1) * 3 + 1, day=1) - timedelta(days=1)
+    elif period == "year":
+        start_date = today.replace(month=1, day=1)
+        end_date = today.replace(month=12, day=31)
+    else:  # month
+        start_date = today.replace(day=1)
+        if today.month == 12:
+            end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+
+    # Get tax-exempt customers
+    tax_exempt_query = Customer.query.filter_by(tax_exempt=True, status='active')
+    if query:
+        tax_exempt_query = tax_exempt_query.filter(
+            db.or_(
+                Customer.name.ilike(f"%{query}%"),
+                Customer.city.ilike(f"%{query}%")
+            )
+        )
+    tax_exempt_customers = tax_exempt_query.order_by(Customer.name).all()
+
+    # Get payments for tax-exempt customers in the selected period
+    customer_ids = [c.id for c in tax_exempt_customers]
+    payments = []
+    if customer_ids:
+        payments = Payment.query.filter(
+            Payment.customer_id.in_(customer_ids),
+            Payment.payment_date >= start_date,
+            Payment.payment_date <= end_date
+        ).order_by(Payment.payment_date.desc()).all()
+
+    # Calculate stats
+    total_payments = sum(p.amount for p in payments)
+    payment_count = len(payments)
+    total_balance = sum(c.balance for c in tax_exempt_customers)
+
+    # Group payments by customer
+    customer_payments = {}
+    for p in payments:
+        if p.customer_id not in customer_payments:
+            customer_payments[p.customer_id] = []
+        customer_payments[p.customer_id].append(p)
+
+    return render_template(
+        "tax_exempt.html",
+        customers=tax_exempt_customers,
+        payments=payments,
+        customer_payments=customer_payments,
+        total_payments=total_payments,
+        payment_count=payment_count,
+        total_balance=total_balance,
+        period=period,
+        start_date=start_date,
+        end_date=end_date,
+        now=today
+    )
+
+
 # Reports Page
 @app.route("/reports")
 @login_required
@@ -2499,6 +2582,13 @@ def init_db():
             db.session.execute(text("UPDATE customer SET status = 'active' WHERE status IS NULL"))
             db.session.commit()
             logger.info("Added status column to customer table")
+
+        # Migrate customer table - add tax_exempt column
+        if "customer" in inspector.get_table_names() and not column_exists("customer", "tax_exempt"):
+            db.session.execute(text("ALTER TABLE customer ADD COLUMN tax_exempt BOOLEAN DEFAULT 0"))
+            db.session.execute(text("UPDATE customer SET tax_exempt = 0 WHERE tax_exempt IS NULL"))
+            db.session.commit()
+            logger.info("Added tax_exempt column to customer table")
 
         # Create default admin user if no users exist
         if User.query.count() == 0:

@@ -92,6 +92,18 @@
         >
     </div>
 
+    <!-- Tax Exempt Toggle -->
+    <div class="flex items-center justify-between py-3 border-t border-border">
+        <div>
+            <div class="text-sm font-semibold">Tax Exempt</div>
+            <div class="text-xs text-muted">Sales to this customer are tax-exempt</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="tax_exempt" class="sr-only peer" {% if customer.tax_exempt %}checked{% endif %}>
+            <div class="w-11 h-6 bg-panel2 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+        </label>
+    </div>
+
     <!-- Customer Stats -->
     <div class="py-3 border-t border-border">
         <div class="grid grid-cols-2 gap-4 text-xs">
