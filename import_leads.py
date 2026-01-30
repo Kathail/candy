@@ -65,6 +65,14 @@ def import_leads(csv_file, confirm=True):
                             # Clear useless values
                             if phone.lower() in ["call", "phone", "n/a", "none", "-", ""]:
                                 phone = None
+                            # Take only first phone if multiple (separated by common patterns)
+                            elif phone:
+                                import re
+                                # Split on 1-800, 1-888, or second area code pattern
+                                phone = re.split(r'1-8\d\d|(?<=\d{4})(?=\d{3}-)', phone)[0].strip()
+                                # Truncate to 20 chars max
+                                if len(phone) > 20:
+                                    phone = phone[:20]
                         phone = phone or None
                         address = row.get("address", "").strip() or None
                         city = row.get("city", "").strip() or None
@@ -112,6 +120,7 @@ def import_leads(csv_file, confirm=True):
 
                     except Exception as e:
                         errors += 1
+                        db.session.rollback()
                         print(f"   Error on row: {e}")
                         continue
 
