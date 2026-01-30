@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
@@ -619,6 +619,7 @@ def customer_edit(customer_id):
     return render_template(
         "partials/customer_edit_modal.html",
         customer=customer,
+        now=datetime.now(),
     )
 
 
@@ -713,6 +714,64 @@ def customer_reactivate(customer_id):
     db.session.commit()
     logger.info(f"Customer reactivated: {customer.name}")
     return redirect(url_for("customers", status="inactive"))
+
+
+@app.route("/customers/<int:customer_id>/add-payment", methods=["POST"])
+@login_required
+def customer_add_payment(customer_id):
+    customer = Customer.query.get_or_404(customer_id)
+
+    amount = float(request.form.get("amount", 0))
+    payment_date_str = request.form.get("payment_date")
+    notes = request.form.get("notes", "").strip()
+
+    if payment_date_str:
+        payment_date = datetime.strptime(payment_date_str, "%Y-%m-%d").date()
+    else:
+        payment_date = datetime.now().date()
+
+    # Create payment
+    payment = Payment(
+        customer_id=customer.id,
+        amount=amount,
+        payment_date=payment_date,
+        notes=notes if notes else None,
+        previous_balance=customer.balance,
+    )
+
+    # Update customer balance
+    customer.balance = max(0, customer.balance - amount)
+
+    db.session.add(payment)
+    db.session.commit()
+
+    logger.info(f"Payment recorded for {customer.name}: ${amount:.2f}")
+    flash(f"Payment of ${amount:.2f} recorded", "success")
+
+    return redirect(url_for("customers"))
+
+
+@app.route("/customers/<int:customer_id>/delete-payment/<int:payment_id>", methods=["POST"])
+@login_required
+def customer_delete_payment(customer_id, payment_id):
+    customer = Customer.query.get_or_404(customer_id)
+    payment = Payment.query.get_or_404(payment_id)
+
+    # Make sure payment belongs to this customer
+    if payment.customer_id != customer_id:
+        flash("Invalid payment", "error")
+        return redirect(url_for("customers"))
+
+    # Restore the balance
+    customer.balance += payment.amount
+
+    db.session.delete(payment)
+    db.session.commit()
+
+    logger.info(f"Payment deleted for {customer.name}: ${payment.amount:.2f}")
+    flash(f"Payment of ${payment.amount:.2f} deleted", "success")
+
+    return redirect(url_for("customers"))
 
 
 # Leads Page
