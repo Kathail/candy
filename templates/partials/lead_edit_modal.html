@@ -78,6 +78,20 @@
         >{{ lead.notes or '' }}</textarea>
     </div>
 
+    <div>
+        <label class="block text-xs text-muted mb-1">Source</label>
+        <select name="lead_source"
+                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand">
+            <option value="">Select source...</option>
+            <option value="referral" {% if lead.lead_source == 'referral' %}selected{% endif %}>Referral</option>
+            <option value="walk-in" {% if lead.lead_source == 'walk-in' %}selected{% endif %}>Walk-in</option>
+            <option value="cold-call" {% if lead.lead_source == 'cold-call' %}selected{% endif %}>Cold Call</option>
+            <option value="website" {% if lead.lead_source == 'website' %}selected{% endif %}>Website</option>
+            <option value="social" {% if lead.lead_source == 'social' %}selected{% endif %}>Social Media</option>
+            <option value="other" {% if lead.lead_source == 'other' %}selected{% endif %}>Other</option>
+        </select>
+    </div>
+
     <!-- Lead Stats -->
     <div class="py-3 border-t border-border">
         <div class="grid grid-cols-2 gap-4 text-xs">

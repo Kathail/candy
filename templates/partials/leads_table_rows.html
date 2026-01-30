@@ -43,6 +43,14 @@
         </td>
 
         <td class="px-4 py-3">
+            {% if lead.lead_source %}
+            <span class="text-xs bg-brand/20 text-brand px-2 py-0.5 rounded capitalize">{{ lead.lead_source }}</span>
+            {% else %}
+            <span class="text-muted text-xs">-</span>
+            {% endif %}
+        </td>
+
+        <td class="px-4 py-3">
             {% if lead.created_at %}
                 {{ lead.created_at.strftime('%b %d, %Y') }}
             {% else %}
@@ -64,7 +72,7 @@
     {% endfor %}
 {% else %}
     <tr>
-        <td colspan="6" class="p-12 text-center">
+        <td colspan="7" class="p-12 text-center">
             <div class="text-5xl mb-4">&#128269;</div>
             <div class="text-lg font-semibold mb-2">No leads found</div>
             <div class="text-sm text-muted">Add a new lead or import from CSV</div>

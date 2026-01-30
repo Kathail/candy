@@ -96,6 +96,7 @@
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Phone</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Address</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Notes</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Source</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">
                             <a href="?sort={% if request.args.get('sort') == 'oldest' %}newest{% else %}oldest{% endif %}&query={{ request.args.get('query', '') }}"
                                class="flex items-center gap-1 hover:text-white transition">
@@ -221,6 +222,19 @@
                         <textarea name="notes" rows="3"
                                   class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                                   placeholder="Any notes about this lead..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Source</label>
+                        <select name="lead_source"
+                                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                            <option value="">Select source...</option>
+                            <option value="referral">Referral</option>
+                            <option value="walk-in">Walk-in</option>
+                            <option value="cold-call">Cold Call</option>
+                            <option value="website">Website</option>
+                            <option value="social">Social Media</option>
+                            <option value="other">Other</option>
+                        </select>
                     </div>
                     <div class="flex gap-2 pt-2">
                         <button type="submit"

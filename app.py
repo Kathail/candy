@@ -91,6 +91,7 @@ class Customer(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     status = db.Column(db.String(20), default='active', nullable=False, index=True)  # lead, active, inactive
     tax_exempt = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    lead_source = db.Column(db.String(50))  # referral, walk-in, cold-call, website, social, other
 
 
 class RouteStop(db.Model):
@@ -478,12 +479,17 @@ def route():
     total = len(stops)
     outstanding_balance = sum(s.customer.balance for s in stops)
 
+    # Calculate today's collections
+    todays_payments = Payment.query.filter_by(payment_date=today).all()
+    collected_today = sum(p.amount for p in todays_payments)
+
     return render_template(
         "route.html",
         completed=completed,
         total=total,
         stops=stops,
         outstanding_balance=f"{outstanding_balance:.2f}",
+        collected_today=f"{collected_today:.2f}",
     )
 
 
@@ -884,6 +890,7 @@ def lead_add():
     address = request.form.get("address")
     city = request.form.get("city")
     notes = request.form.get("notes")
+    lead_source = request.form.get("lead_source")
 
     if not name:
         return "Name is required", 400
@@ -896,11 +903,12 @@ def lead_add():
         notes=notes or None,
         balance=0.0,
         status='lead',
+        lead_source=lead_source or None,
     )
 
     db.session.add(new_lead)
     db.session.commit()
-    logger.info(f"Lead added: {name}")
+    logger.info(f"Lead added: {name} (source: {lead_source})")
 
     return redirect(url_for("leads"))
 
@@ -927,6 +935,7 @@ def lead_update(lead_id):
     lead.address = request.form.get("address") or None
     lead.city = request.form.get("city") or None
     lead.notes = request.form.get("notes") or None
+    lead.lead_source = request.form.get("lead_source") or None
 
     db.session.commit()
     logger.info(f"Lead updated: {lead.name}")
@@ -1186,15 +1195,6 @@ def planner_date_details(date_str):
         route_date=date_str,
         date_formatted=route_date.strftime("%b %d, %Y"),
         day_name=route_date.strftime("%A"),
-    )
-
-
-@app.route("/planner/route/<int:route_id>")
-@login_required
-def planner_route_details(route_id):
-    return render_template(
-        "partials/planner_route_details.html",
-        route_id=route_id,
     )
 
 
@@ -1924,6 +1924,7 @@ def api_route_today():
 # Admin route to reimport customers (clears existing)
 @app.route("/admin/reimport-customers", methods=["POST"])
 @login_required
+@admin_required
 def admin_reimport_customers():
     """Clear all customers and reimport from CSV"""
     csv_file = os.path.join(os.path.dirname(__file__), "customers_cleaned.csv")
@@ -2537,6 +2538,12 @@ def init_db():
             db.session.execute(text("UPDATE customer SET tax_exempt = 0 WHERE tax_exempt IS NULL"))
             db.session.commit()
             logger.info("Added tax_exempt column to customer table")
+
+        # Migrate customer table - add lead_source column
+        if "customer" in inspector.get_table_names() and not column_exists("customer", "lead_source"):
+            db.session.execute(text("ALTER TABLE customer ADD COLUMN lead_source VARCHAR(50)"))
+            db.session.commit()
+            logger.info("Added lead_source column to customer table")
 
         # Create default admin user if no users exist
         if User.query.count() == 0:

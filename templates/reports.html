@@ -36,12 +36,12 @@
     </div>
 
     <!-- Tax Exempt Section -->
-    {% if tax_exempt_week.count > 0 or tax_exempt_month.count > 0 or tax_exempt_quarter.count > 0 or tax_exempt_year.count > 0 %}
+    {% if tax_exempt_customers|length > 0 %}
     <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6 border-l-4 border-warn">
         <div class="flex items-center gap-2 mb-4">
             <span class="text-warn text-lg">⚡</span>
             <h2 class="text-lg font-semibold">Tax Exempt Sales</h2>
-            <span class="text-xs text-muted">(included in totals above)</span>
+            <span class="text-xs text-muted">({{ tax_exempt_customers|length }} customer{% if tax_exempt_customers|length != 1 %}s{% endif %} · included in totals above)</span>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
@@ -76,23 +76,45 @@
             </button>
 
             <div x-show="showPayments" x-cloak class="mt-3 space-y-2 max-h-64 overflow-y-auto">
-                {% for payment in tax_exempt_month.payments[:15] %}
-                <div class="flex items-center justify-between p-2 bg-panel2 rounded-lg text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="bg-warn/20 text-warn px-1.5 py-0.5 rounded text-[10px] font-semibold">TAX EXEMPT</span>
-                        <div>
-                            <div class="font-semibold">{{ payment.customer.name }}</div>
-                            <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
+                {% if tax_exempt_month.payments %}
+                    {% for payment in tax_exempt_month.payments[:15] %}
+                    <div class="flex items-center justify-between p-2 bg-panel2 rounded-lg text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-warn/20 text-warn px-1.5 py-0.5 rounded text-[10px] font-semibold">TAX EXEMPT</span>
+                            <div>
+                                <div class="font-semibold">{{ payment.customer.name }}</div>
+                                <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
+                            </div>
                         </div>
+                        <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
                     </div>
-                    <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
-                </div>
-                {% endfor %}
-                {% if tax_exempt_month.payments|length > 15 %}
-                <div class="text-xs text-muted text-center py-2">
-                    + {{ tax_exempt_month.payments|length - 15 }} more this month
-                </div>
+                    {% endfor %}
+                    {% if tax_exempt_month.payments|length > 15 %}
+                    <div class="text-xs text-muted text-center py-2">
+                        + {{ tax_exempt_month.payments|length - 15 }} more this month
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-xs text-muted text-center py-4">
+                        No tax-exempt payments this month
+                    </div>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Tax Exempt Customers List -->
+        <div class="mt-4 pt-4 border-t border-border">
+            <div class="text-xs text-muted mb-2">Tax Exempt Customers:</div>
+            <div class="flex flex-wrap gap-2">
+                {% for customer in tax_exempt_customers %}
+                <a href="/customers/{{ customer.id }}"
+                   class="inline-flex items-center gap-1 bg-warn/10 text-warn text-xs px-2 py-1 rounded hover:bg-warn/20 transition">
+                    {{ customer.name }}
+                    {% if customer.balance > 0 %}
+                    <span class="text-[10px] opacity-70">${{ "%.0f"|format(customer.balance) }}</span>
+                    {% endif %}
+                </a>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -226,6 +248,19 @@
     <!-- Custom Date Range -->
     <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6">
         <h2 class="text-lg font-semibold mb-4">Custom Date Range</h2>
+
+        <!-- Quick Presets -->
+        <div class="mb-4">
+            <div class="text-xs text-muted mb-2">Quick presets:</div>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="setDatePreset('last7')" class="text-xs bg-panel2 hover:bg-border px-3 py-1.5 rounded transition">Last 7 Days</button>
+                <button type="button" onclick="setDatePreset('last30')" class="text-xs bg-panel2 hover:bg-border px-3 py-1.5 rounded transition">Last 30 Days</button>
+                <button type="button" onclick="setDatePreset('last90')" class="text-xs bg-panel2 hover:bg-border px-3 py-1.5 rounded transition">Last 90 Days</button>
+                <button type="button" onclick="setDatePreset('ytd')" class="text-xs bg-panel2 hover:bg-border px-3 py-1.5 rounded transition">Year to Date</button>
+                <button type="button" onclick="setDatePreset('lastYear')" class="text-xs bg-panel2 hover:bg-border px-3 py-1.5 rounded transition">Last Year</button>
+            </div>
+        </div>
+
         <form id="custom-export-form" class="space-y-4">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                 <div>
@@ -237,12 +272,12 @@
                 </div>
                 <div>
                     <label class="block text-xs text-muted mb-1">Start Date</label>
-                    <input type="date" name="start" value="{{ month_start.strftime('%Y-%m-%d') }}"
+                    <input type="date" name="start" id="start-date" value="{{ month_start.strftime('%Y-%m-%d') }}"
                            class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 </div>
                 <div>
                     <label class="block text-xs text-muted mb-1">End Date</label>
-                    <input type="date" name="end" value="{{ today.strftime('%Y-%m-%d') }}"
+                    <input type="date" name="end" id="end-date" value="{{ today.strftime('%Y-%m-%d') }}"
                            class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 </div>
                 <div>
@@ -299,6 +334,42 @@ document.getElementById('custom-export-form').addEventListener('submit', functio
     const params = new URLSearchParams(formData);
     window.location.href = '/reports/export?' + params.toString();
 });
+
+function setDatePreset(preset) {
+    const startInput = document.getElementById('start-date');
+    const endInput = document.getElementById('end-date');
+    const today = new Date();
+    let start, end;
+
+    switch(preset) {
+        case 'last7':
+            start = new Date(today);
+            start.setDate(start.getDate() - 7);
+            end = today;
+            break;
+        case 'last30':
+            start = new Date(today);
+            start.setDate(start.getDate() - 30);
+            end = today;
+            break;
+        case 'last90':
+            start = new Date(today);
+            start.setDate(start.getDate() - 90);
+            end = today;
+            break;
+        case 'ytd':
+            start = new Date(today.getFullYear(), 0, 1);
+            end = today;
+            break;
+        case 'lastYear':
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            end = new Date(today.getFullYear() - 1, 11, 31);
+            break;
+    }
+
+    startInput.value = start.toISOString().split('T')[0];
+    endInput.value = end.toISOString().split('T')[0];
+}
 </script>
 
 {% endblock %}
