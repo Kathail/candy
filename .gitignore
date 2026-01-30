@@ -38,3 +38,6 @@ Thumbs.db
 # Render
 # =========================
 .render/
+
+# Skeleton template folder
+skeleton/

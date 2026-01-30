@@ -4,9 +4,9 @@
 
 <div x-data="leadsPage()">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 md:mb-6">
         <div>
-            <h1 class="text-2xl font-semibold">Leads</h1>
+            <h1 class="text-xl md:text-2xl font-semibold">Leads</h1>
             <p class="text-xs text-muted mt-1">
                 {% if request.args.get('query') %}
                     Showing {{ pagination.total }} of {{ total_leads }} leads
@@ -18,28 +18,29 @@
         <div class="flex gap-2">
             {% if current_user.is_admin() %}
             <a href="{{ url_for('admin_import_leads') }}"
-               class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center gap-2">
+               class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 </svg>
-                Import CSV
+                <span class="hidden sm:inline">Import CSV</span>
+                <span class="sm:hidden">Import</span>
             </a>
             {% endif %}
             <button
                 @click="showAddModal = true"
-                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
-                + Add Lead
+                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition">
+                + <span class="hidden sm:inline">Add Lead</span><span class="sm:hidden">Add</span>
             </button>
         </div>
     </div>
 
     <!-- Search and Sort -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 mb-6">
         <input
             type="text"
             name="query"
-            placeholder="Search by name, city, notes..."
-            class="md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Search..."
+            class="col-span-2 md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
             value="{{ request.args.get('query', '') }}"
             hx-get="/leads"
             hx-trigger="keyup changed delay:500ms"
@@ -64,14 +65,14 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+    <div class="grid grid-cols-2 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Total Leads</div>
-            <div class="text-2xl font-semibold text-warn">{{ total_leads }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-warn">{{ total_leads }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Showing</div>
-            <div class="text-2xl font-semibold">{{ leads|length }}</div>
+            <div class="text-xl md:text-2xl font-semibold">{{ leads|length }}</div>
         </div>
     </div>
 

@@ -4,9 +4,9 @@
 
 <div x-data="customerPage()">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 md:mb-6">
         <div>
-            <h1 class="text-2xl font-semibold">Customers</h1>
+            <h1 class="text-xl md:text-2xl font-semibold">Customers</h1>
             <p class="text-xs text-muted mt-1">
                 {% if request.args.get('filter') or request.args.get('query') %}
                     Showing {{ pagination.total }} of {{ total_customers }} customers
@@ -17,27 +17,28 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ url_for('export_customers') }}"
-               class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center gap-2">
+               class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                Export CSV
+                <span class="hidden sm:inline">Export CSV</span>
+                <span class="sm:hidden">Export</span>
             </a>
             <button
                 @click="showAddModal = true"
-                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
-                + Add Customer
+                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition">
+                + <span class="hidden sm:inline">Add Customer</span><span class="sm:hidden">Add</span>
             </button>
         </div>
     </div>
 
     <!-- Search, Filter, and Sort -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-6">
         <input
             type="text"
             name="query"
-            placeholder="Search by name, city, notes..."
-            class="md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Search..."
+            class="col-span-2 md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
             value="{{ request.args.get('query', '') }}"
             hx-get="/customers"
             hx-trigger="keyup changed delay:500ms"
@@ -91,22 +92,22 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Total</div>
-            <div class="text-2xl font-semibold">{{ total_customers }}</div>
+            <div class="text-xl md:text-2xl font-semibold">{{ total_customers }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">With Balance</div>
-            <div class="text-2xl font-semibold text-warn">{{ customers_with_balance }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-warn">{{ customers_with_balance }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Never Visited</div>
-            <div class="text-2xl font-semibold text-danger">{{ never_visited }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-danger">{{ never_visited }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Need Visit</div>
-            <div class="text-2xl font-semibold text-warn">{{ needs_visit }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-warn">{{ needs_visit }}</div>
         </div>
     </div>
 

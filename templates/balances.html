@@ -4,47 +4,48 @@
 
 <div x-data="balancesPage()">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 md:mb-6">
         <div>
-            <h1 class="text-2xl font-semibold">Outstanding Balances</h1>
+            <h1 class="text-xl md:text-2xl font-semibold">Outstanding Balances</h1>
             <p class="text-xs text-muted mt-1">{{ balances|length }} customer{% if balances|length != 1 %}s{% endif %} with outstanding payments</p>
         </div>
         <a href="{{ url_for('export_payments') }}"
-           class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition flex items-center gap-2">
+           class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition flex items-center gap-2 self-start sm:self-auto">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            Export Payments
+            <span class="hidden sm:inline">Export Payments</span>
+            <span class="sm:hidden">Export</span>
         </a>
     </div>
 
     <!-- Summary Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Total Owed</div>
-            <div class="text-2xl font-semibold text-warn">${{ total_owed }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-warn">${{ total_owed }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Customers</div>
-            <div class="text-2xl font-semibold">{{ balances|length }}</div>
+            <div class="text-xl md:text-2xl font-semibold">{{ balances|length }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Average</div>
-            <div class="text-2xl font-semibold">${{ avg_balance }}</div>
+            <div class="text-xl md:text-2xl font-semibold">${{ avg_balance }}</div>
         </div>
-        <div class="bg-panel rounded-lg p-4 shadow-soft">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
             <div class="text-xs text-muted mb-1">Highest</div>
-            <div class="text-2xl font-semibold text-danger">${{ highest_balance }}</div>
+            <div class="text-xl md:text-2xl font-semibold text-danger">${{ highest_balance }}</div>
         </div>
     </div>
 
     <!-- Search and Sort -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6">
         <input
             type="text"
             name="query"
-            placeholder="Search customers..."
-            class="md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Search..."
+            class="col-span-2 md:col-span-2 bg-panel border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand"
             value="{{ request.args.get('query', '') }}"
             hx-get="/balances"
             hx-trigger="keyup changed delay:500ms"

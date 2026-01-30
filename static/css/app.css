@@ -123,3 +123,47 @@ a.htmx-request {
     pointer-events: none;
     opacity: 0.7;
 }
+
+/* Mobile bottom navigation spacing */
+@media (max-width: 1023px) {
+    main {
+        padding-bottom: 80px !important;
+    }
+}
+
+/* Safe area for devices with notch/home indicator */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Mobile-friendly touch targets */
+@media (max-width: 1023px) {
+    /* Larger tap targets for mobile */
+    .nav-item,
+    button,
+    a {
+        min-height: 44px;
+    }
+
+    /* Better spacing on mobile */
+    .scrollable-table {
+        max-height: 50vh;
+    }
+
+    .scrollable-container {
+        max-height: 50vh;
+    }
+}
+
+/* Improve input appearance on mobile */
+input, select, textarea {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+}
+
+/* Mobile card improvements */
+@media (max-width: 640px) {
+    /* Stack KPI cards better on small screens */
+    .grid-cols-2 {
+        gap: 0.5rem;
+    }
+}
