@@ -1426,17 +1426,18 @@ def analytics():
         1 for p in all_payments if p.payment_date >= seven_days_ago
     )
 
-    # New customers count using efficient query
+    # New customers count using efficient query (active only)
     new_customers = Customer.query.filter(
         Customer.created_at != None,
-        Customer.created_at >= datetime.combine(thirty_days_ago, datetime.min.time())
+        Customer.created_at >= datetime.combine(thirty_days_ago, datetime.min.time()),
+        Customer.status == 'active'
     ).count()
 
-    # City breakdown using efficient query
+    # City breakdown using efficient query (active customers only)
     city_counts = db.session.query(
         Customer.city,
         db.func.count(Customer.id)
-    ).filter(Customer.city != None).group_by(Customer.city).all()
+    ).filter(Customer.city != None, Customer.status == 'active').group_by(Customer.city).all()
 
     cities = [{"name": city, "count": count} for city, count in city_counts]
     cities.sort(key=lambda x: x["count"], reverse=True)
