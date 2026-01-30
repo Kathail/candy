@@ -516,6 +516,25 @@ def uncomplete_stop(stop_id):
     return render_template("partials/stop_details.html", stop=stop)
 
 
+@app.route("/route/stop/<int:stop_id>/payment", methods=["POST"])
+@login_required
+def stop_payment(stop_id):
+    stop = RouteStop.query.get_or_404(stop_id)
+    amount = float(request.form.get("amount", 0))
+    if amount > 0:
+        payment = Payment(
+            customer_id=stop.customer.id,
+            amount=amount,
+            payment_date=datetime.now().date(),
+            notes=f"Collected on route"
+        )
+        db.session.add(payment)
+        stop.customer.balance = max(0, stop.customer.balance - amount)
+        db.session.commit()
+        logger.info(f"Payment of ${amount:.2f} recorded for {stop.customer.name} on route")
+    return render_template("partials/stop_details.html", stop=stop)
+
+
 # Customers Page
 @app.route("/customers")
 @login_required

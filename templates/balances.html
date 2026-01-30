@@ -79,11 +79,7 @@
                     <div
                         class="bg-panel rounded-xl shadow-soft p-4 cursor-pointer hover:ring-2 hover:ring-brand/50 transition"
                         :class="selectedBalance === {{ b.id }} ? 'ring-2 ring-brand' : ''"
-                        @click="selectedBalance = {{ b.id }}"
-                        hx-get="/balances/{{ b.id }}"
-                        hx-target="#balance-details"
-                        hx-swap="innerHTML"
-                        hx-trigger="click">
+                        @click="selectedBalance = {{ b.id }}; openBalanceModal({{ b.id }})">
 
                         <div class="flex items-start justify-between mb-3">
                             <div>
@@ -155,6 +151,19 @@
                     <div class="text-5xl mb-4">💰</div>
                     <div class="text-lg font-semibold mb-2">Select a customer</div>
                     <div class="text-sm text-muted">Click any customer to view balance details and payment history</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Details Modal (All devices) -->
+    <div id="balance-modal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 py-6">
+            <div onclick="closeBalanceModal()" class="fixed inset-0 bg-black/50"></div>
+            <div id="balance-modal-content" class="relative bg-panel rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-4">
+                <div class="text-center py-8">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <div class="text-sm text-muted">Loading...</div>
                 </div>
             </div>
         </div>
@@ -248,6 +257,27 @@
 
 <script>
     let currentBalance = 0;
+    let currentBalanceId = null;
+
+    function openBalanceModal(balanceId) {
+        currentBalanceId = balanceId;
+        document.getElementById('balance-modal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        // Load into both modal and desktop panel
+        htmx.ajax('GET', '/balances/' + balanceId, '#balance-modal-content');
+        htmx.ajax('GET', '/balances/' + balanceId, '#balance-details');
+    }
+
+    function closeBalanceModal() {
+        document.getElementById('balance-modal').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    function refreshBalanceDetails(balanceId) {
+        // Refresh both modal and desktop panel
+        htmx.ajax('GET', '/balances/' + balanceId, '#balance-modal-content');
+        htmx.ajax('GET', '/balances/' + balanceId, '#balance-details');
+    }
 
     function openPaymentModal(customerId, customerName, balance) {
         currentBalance = balance;
@@ -276,6 +306,13 @@
             selectedBalance: null
         };
     }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeBalanceModal();
+        }
+    });
 </script>
 
 {% endblock %}
