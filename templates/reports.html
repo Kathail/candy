@@ -2,134 +2,52 @@
 {% block title %}Reports{% endblock %}
 {% block content %}
 
-<div class="max-w-5xl mx-auto">
+<div x-data="reportsPage()">
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-semibold">Reports</h1>
-        <p class="text-xs text-muted mt-1">Financial summaries and exports</p>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 md:mb-6">
+        <div>
+            <h1 class="text-xl md:text-2xl font-semibold">Reports</h1>
+            <p class="text-xs text-muted mt-1">Financial summaries and exports</p>
+        </div>
+        <a href="/reports/export?type=summary&format=pdf"
+           class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-3 md:px-4 py-2 rounded-md transition flex items-center gap-2 self-start sm:self-auto">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span class="hidden sm:inline">Export Summary</span>
+            <span class="sm:hidden">Export</span>
+        </a>
     </div>
 
-    <!-- Revenue Overview -->
-    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Revenue Overview</h2>
+    <!-- Revenue Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">This Week</div>
+            <div class="text-xl md:text-2xl font-semibold text-good">${{ "%.2f"|format(week_stats.total) }}</div>
+            <div class="text-xs text-muted mt-1">{{ week_stats.count }} payments</div>
         </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="text-center p-4 bg-panel2 rounded-lg">
-                <div class="text-xs text-muted mb-2">This Week</div>
-                <div class="text-2xl font-bold text-good">${{ "%.2f"|format(week_stats.total) }}</div>
-                <div class="text-xs text-muted mt-1">{{ week_stats.count }} payments</div>
-                <a href="/reports/export?type=payments&period=week&format=pdf"
-                   class="inline-block mt-2 text-xs text-brand hover:underline">Export PDF</a>
-            </div>
-            <div class="text-center p-4 bg-panel2 rounded-lg">
-                <div class="text-xs text-muted mb-2">This Month</div>
-                <div class="text-2xl font-bold text-good">${{ "%.2f"|format(month_stats.total) }}</div>
-                <div class="text-xs text-muted mt-1">{{ month_stats.count }} payments</div>
-                <a href="/reports/export?type=payments&period=month&format=pdf"
-                   class="inline-block mt-2 text-xs text-brand hover:underline">Export PDF</a>
-            </div>
-            <div class="text-center p-4 bg-panel2 rounded-lg">
-                <div class="text-xs text-muted mb-2">This Quarter</div>
-                <div class="text-2xl font-bold text-good">${{ "%.2f"|format(quarter_stats.total) }}</div>
-                <div class="text-xs text-muted mt-1">{{ quarter_stats.count }} payments</div>
-                <a href="/reports/export?type=payments&period=quarter&format=pdf"
-                   class="inline-block mt-2 text-xs text-brand hover:underline">Export PDF</a>
-            </div>
-            <div class="text-center p-4 bg-panel2 rounded-lg">
-                <div class="text-xs text-muted mb-2">This Year</div>
-                <div class="text-2xl font-bold text-good">${{ "%.2f"|format(year_stats.total) }}</div>
-                <div class="text-xs text-muted mt-1">{{ year_stats.count }} payments</div>
-                <a href="/reports/export?type=payments&period=year&format=pdf"
-                   class="inline-block mt-2 text-xs text-brand hover:underline">Export PDF</a>
-            </div>
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">This Month</div>
+            <div class="text-xl md:text-2xl font-semibold text-good">${{ "%.2f"|format(month_stats.total) }}</div>
+            <div class="text-xs text-muted mt-1">{{ month_stats.count }} payments</div>
+        </div>
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">This Quarter</div>
+            <div class="text-xl md:text-2xl font-semibold text-good">${{ "%.2f"|format(quarter_stats.total) }}</div>
+            <div class="text-xs text-muted mt-1">{{ quarter_stats.count }} payments</div>
+        </div>
+        <div class="bg-panel rounded-lg p-3 md:p-4 shadow-soft">
+            <div class="text-xs text-muted mb-1">This Year</div>
+            <div class="text-xl md:text-2xl font-semibold text-good">${{ "%.2f"|format(year_stats.total) }}</div>
+            <div class="text-xs text-muted mt-1">{{ year_stats.count }} payments</div>
         </div>
     </div>
 
-    <!-- Tax Exempt Section -->
-    {% if tax_exempt_customers|length > 0 %}
-    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6 border-l-4 border-warn">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-                <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Tax Exempt Sales</h2>
-                <span class="text-xs bg-warn/20 text-warn px-2 py-0.5 rounded">{{ tax_exempt_customers|length }} customer{% if tax_exempt_customers|length != 1 %}s{% endif %}</span>
-            </div>
-            <span class="text-xs text-muted">Included in totals above</span>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div class="text-center p-3 bg-warn/5 rounded-lg border border-warn/20">
-                <div class="text-xs text-muted mb-1">Week</div>
-                <div class="text-lg font-bold text-warn">${{ "%.2f"|format(tax_exempt_week.total) }}</div>
-                <a href="/reports/export?type=tax_exempt&period=week&format=pdf"
-                   class="inline-block mt-1 text-xs text-warn/70 hover:text-warn hover:underline">Export</a>
-            </div>
-            <div class="text-center p-3 bg-warn/5 rounded-lg border border-warn/20">
-                <div class="text-xs text-muted mb-1">Month</div>
-                <div class="text-lg font-bold text-warn">${{ "%.2f"|format(tax_exempt_month.total) }}</div>
-                <a href="/reports/export?type=tax_exempt&period=month&format=pdf"
-                   class="inline-block mt-1 text-xs text-warn/70 hover:text-warn hover:underline">Export</a>
-            </div>
-            <div class="text-center p-3 bg-warn/5 rounded-lg border border-warn/20">
-                <div class="text-xs text-muted mb-1">Quarter</div>
-                <div class="text-lg font-bold text-warn">${{ "%.2f"|format(tax_exempt_quarter.total) }}</div>
-                <a href="/reports/export?type=tax_exempt&period=quarter&format=pdf"
-                   class="inline-block mt-1 text-xs text-warn/70 hover:text-warn hover:underline">Export</a>
-            </div>
-            <div class="text-center p-3 bg-warn/5 rounded-lg border border-warn/20">
-                <div class="text-xs text-muted mb-1">Year</div>
-                <div class="text-lg font-bold text-warn">${{ "%.2f"|format(tax_exempt_year.total) }}</div>
-                <a href="/reports/export?type=tax_exempt&period=year&format=pdf"
-                   class="inline-block mt-1 text-xs text-warn/70 hover:text-warn hover:underline">Export</a>
-            </div>
-        </div>
-
-        <!-- Tax Exempt Customers -->
-        <div class="flex flex-wrap gap-2 mb-4">
-            {% for customer in tax_exempt_customers %}
-            <a href="/customers/{{ customer.id }}"
-               class="text-xs bg-warn/10 text-warn px-2 py-1 rounded hover:bg-warn/20 transition">
-                {{ customer.name }}
-            </a>
-            {% endfor %}
-        </div>
-
-        <!-- Tax Exempt Export Options -->
-        <div class="pt-3 border-t border-warn/20">
-            <div class="text-xs text-muted mb-2">Export Tax Exempt Report:</div>
-            <div class="flex flex-wrap gap-2">
-                <a href="/reports/export?type=tax_exempt&period=year&format=pdf"
-                   class="inline-flex items-center gap-1 text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                    </svg>
-                    PDF
-                </a>
-                <a href="/reports/export?type=tax_exempt&period=year&format=csv"
-                   class="inline-flex items-center gap-1 text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    CSV
-                </a>
-                <a href="/reports/export?type=tax_exempt&period=year&format=excel"
-                   class="inline-flex items-center gap-1 text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                    </svg>
-                    Excel
-                </a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Export Reports -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <!-- Custom Report -->
-        <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6">
-            <h2 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">Custom Report</h2>
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <!-- Custom Report Form -->
+        <div class="lg:col-span-2 bg-panel rounded-xl shadow-soft p-4">
+            <div class="text-sm font-semibold mb-3">Custom Report</div>
 
             <!-- Quick Presets -->
             <div class="flex flex-wrap gap-2 mb-4">
@@ -143,19 +61,19 @@
             <form id="custom-export-form" class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs text-muted mb-1">Start</label>
+                        <label class="block text-xs text-muted mb-1">Start Date</label>
                         <input type="date" name="start" id="start-date" value="{{ month_start.strftime('%Y-%m-%d') }}"
                                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                     </div>
                     <div>
-                        <label class="block text-xs text-muted mb-1">End</label>
+                        <label class="block text-xs text-muted mb-1">End Date</label>
                         <input type="date" name="end" id="end-date" value="{{ today.strftime('%Y-%m-%d') }}"
                                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs text-muted mb-1">Type</label>
+                        <label class="block text-xs text-muted mb-1">Report Type</label>
                         <select name="type" class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                             <option value="payments">Payments</option>
                             <option value="summary">Summary</option>
@@ -178,17 +96,17 @@
         </div>
 
         <!-- Quick Exports -->
-        <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6">
-            <h2 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">Quick Exports</h2>
+        <div class="bg-panel rounded-xl shadow-soft p-4">
+            <div class="text-sm font-semibold mb-3">Quick Exports</div>
 
-            <div class="space-y-3">
+            <div class="space-y-2">
                 <a href="/reports/export?type=payments&format=csv"
                    class="flex items-center justify-between p-3 bg-panel2 rounded-lg hover:bg-border transition">
                     <div class="flex items-center gap-3">
                         <span class="text-lg">💰</span>
                         <div>
                             <div class="text-sm font-semibold">All Payments</div>
-                            <div class="text-xs text-muted">Complete payment history</div>
+                            <div class="text-xs text-muted">Complete history</div>
                         </div>
                     </div>
                     <span class="text-xs text-brand">CSV</span>
@@ -199,8 +117,8 @@
                     <div class="flex items-center gap-3">
                         <span class="text-lg">📊</span>
                         <div>
-                            <div class="text-sm font-semibold">Financial Summary</div>
-                            <div class="text-xs text-muted">Totals by customer & month</div>
+                            <div class="text-sm font-semibold">Summary</div>
+                            <div class="text-xs text-muted">By customer</div>
                         </div>
                     </div>
                     <span class="text-xs text-brand">PDF</span>
@@ -211,8 +129,8 @@
                     <div class="flex items-center gap-3">
                         <span class="text-lg">📋</span>
                         <div>
-                            <div class="text-sm font-semibold">Outstanding Balances</div>
-                            <div class="text-xs text-muted">Accounts receivable</div>
+                            <div class="text-sm font-semibold">Balances</div>
+                            <div class="text-xs text-muted">Outstanding</div>
                         </div>
                     </div>
                     <span class="text-xs text-brand">PDF</span>
@@ -223,30 +141,71 @@
                     <div class="flex items-center gap-3">
                         <span class="text-lg">👥</span>
                         <div>
-                            <div class="text-sm font-semibold">Customer List</div>
-                            <div class="text-xs text-muted">All customer data</div>
+                            <div class="text-sm font-semibold">Customers</div>
+                            <div class="text-xs text-muted">All data</div>
                         </div>
                     </div>
                     <span class="text-xs text-brand">CSV</span>
                 </a>
-
-                <a href="/reports/export?type=tax_exempt&period=year&format=excel"
-                   class="flex items-center justify-between p-3 bg-panel2 rounded-lg hover:bg-border transition border border-warn/20">
-                    <div class="flex items-center gap-3">
-                        <span class="text-lg">🧾</span>
-                        <div>
-                            <div class="text-sm font-semibold">Tax Exempt Report</div>
-                            <div class="text-xs text-muted">YTD exempt sales</div>
-                        </div>
-                    </div>
-                    <span class="text-xs text-warn">XLSX</span>
-                </a>
             </div>
         </div>
     </div>
+
+    <!-- Tax Exempt Section -->
+    {% if tax_exempt_customers|length > 0 %}
+    <div class="bg-panel rounded-xl shadow-soft p-4 border-l-4 border-warn">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div class="flex items-center gap-2">
+                <div class="text-sm font-semibold">Tax Exempt Sales</div>
+                <span class="text-xs bg-warn/20 text-warn px-2 py-0.5 rounded">{{ tax_exempt_customers|length }} customer{% if tax_exempt_customers|length != 1 %}s{% endif %}</span>
+            </div>
+            <div class="flex gap-2">
+                <a href="/reports/export?type=tax_exempt&period=year&format=pdf"
+                   class="text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">PDF</a>
+                <a href="/reports/export?type=tax_exempt&period=year&format=csv"
+                   class="text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">CSV</a>
+                <a href="/reports/export?type=tax_exempt&period=year&format=excel"
+                   class="text-xs bg-warn/10 hover:bg-warn/20 text-warn px-3 py-1.5 rounded transition">Excel</a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
+            <div class="bg-warn/5 rounded-lg p-3 border border-warn/20">
+                <div class="text-xs text-muted mb-1">Week</div>
+                <div class="text-lg md:text-xl font-semibold text-warn">${{ "%.2f"|format(tax_exempt_week.total) }}</div>
+            </div>
+            <div class="bg-warn/5 rounded-lg p-3 border border-warn/20">
+                <div class="text-xs text-muted mb-1">Month</div>
+                <div class="text-lg md:text-xl font-semibold text-warn">${{ "%.2f"|format(tax_exempt_month.total) }}</div>
+            </div>
+            <div class="bg-warn/5 rounded-lg p-3 border border-warn/20">
+                <div class="text-xs text-muted mb-1">Quarter</div>
+                <div class="text-lg md:text-xl font-semibold text-warn">${{ "%.2f"|format(tax_exempt_quarter.total) }}</div>
+            </div>
+            <div class="bg-warn/5 rounded-lg p-3 border border-warn/20">
+                <div class="text-xs text-muted mb-1">Year</div>
+                <div class="text-lg md:text-xl font-semibold text-warn">${{ "%.2f"|format(tax_exempt_year.total) }}</div>
+            </div>
+        </div>
+
+        <!-- Tax Exempt Customers -->
+        <div class="flex flex-wrap gap-2">
+            {% for customer in tax_exempt_customers %}
+            <a href="/customers/{{ customer.id }}"
+               class="text-xs bg-warn/10 text-warn px-2 py-1 rounded hover:bg-warn/20 transition">
+                {{ customer.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
+function reportsPage() {
+    return {};
+}
+
 document.getElementById('custom-export-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
