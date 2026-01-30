@@ -1,10 +1,17 @@
 import csv
 import io
+import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from collections import defaultdict
 
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, url_for
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
@@ -1930,6 +1937,501 @@ def admin_reimport_customers():
         db.session.rollback()
         logger.error(f"Error reimporting customers: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# Reports Page
+@app.route("/reports")
+@login_required
+def reports():
+    """Reports and exports page for tax purposes"""
+    today = datetime.now().date()
+
+    # Calculate date ranges
+    # This week (Monday to Sunday)
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    # This month
+    month_start = today.replace(day=1)
+    if today.month == 12:
+        month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+
+    # This quarter
+    quarter = (today.month - 1) // 3
+    quarter_start = today.replace(month=quarter * 3 + 1, day=1)
+    if quarter == 3:
+        quarter_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        quarter_end = today.replace(month=(quarter + 1) * 3 + 1, day=1) - timedelta(days=1)
+
+    # This year
+    year_start = today.replace(month=1, day=1)
+    year_end = today.replace(month=12, day=31)
+
+    # Get quick stats
+    def get_period_stats(start, end):
+        payments = Payment.query.filter(
+            Payment.payment_date >= start,
+            Payment.payment_date <= end
+        ).all()
+        total = sum(p.amount for p in payments)
+        count = len(payments)
+        return {"total": total, "count": count}
+
+    week_stats = get_period_stats(week_start, week_end)
+    month_stats = get_period_stats(month_start, month_end)
+    quarter_stats = get_period_stats(quarter_start, quarter_end)
+    year_stats = get_period_stats(year_start, year_end)
+
+    return render_template(
+        "reports.html",
+        today=today,
+        week_start=week_start,
+        week_end=week_end,
+        month_start=month_start,
+        month_end=month_end,
+        quarter_start=quarter_start,
+        quarter_end=quarter_end,
+        year_start=year_start,
+        year_end=year_end,
+        week_stats=week_stats,
+        month_stats=month_stats,
+        quarter_stats=quarter_stats,
+        year_stats=year_stats,
+    )
+
+
+@app.route("/reports/export")
+@login_required
+def export_report():
+    """Export financial report as CSV or PDF"""
+    report_type = request.args.get("type", "payments")  # payments, summary, customers
+    format_type = request.args.get("format", "csv")  # csv, pdf
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+    period = request.args.get("period")  # week, month, quarter, year, all
+
+    today = datetime.now().date()
+
+    # Calculate date range based on period
+    if period == "week":
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+    elif period == "month":
+        start = today.replace(day=1)
+        if today.month == 12:
+            end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    elif period == "quarter":
+        quarter = (today.month - 1) // 3
+        start = today.replace(month=quarter * 3 + 1, day=1)
+        if quarter == 3:
+            end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = today.replace(month=(quarter + 1) * 3 + 1, day=1) - timedelta(days=1)
+    elif period == "year":
+        start = today.replace(month=1, day=1)
+        end = today.replace(month=12, day=31)
+    elif start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except ValueError:
+            start = None
+            end = None
+    else:
+        start = None
+        end = None
+
+    # Get data based on report type
+    if report_type == "payments":
+        query = Payment.query.options(db.joinedload(Payment.customer))
+        if start and end:
+            query = query.filter(Payment.payment_date >= start, Payment.payment_date <= end)
+        payments = query.order_by(Payment.payment_date.desc()).all()
+
+        if format_type == "pdf":
+            return generate_payments_pdf(payments, start, end)
+        else:
+            return generate_payments_csv(payments, start, end)
+
+    elif report_type == "summary":
+        # Financial summary report
+        query = Payment.query.options(db.joinedload(Payment.customer))
+        if start and end:
+            query = query.filter(Payment.payment_date >= start, Payment.payment_date <= end)
+        payments = query.order_by(Payment.payment_date.desc()).all()
+
+        if format_type == "pdf":
+            return generate_summary_pdf(payments, start, end)
+        else:
+            return generate_summary_csv(payments, start, end)
+
+    elif report_type == "balances":
+        # Outstanding balances report
+        customers = Customer.query.filter(
+            Customer.balance > 0,
+            Customer.status == 'active'
+        ).order_by(Customer.balance.desc()).all()
+
+        if format_type == "pdf":
+            return generate_balances_pdf(customers, start, end)
+        else:
+            return generate_balances_csv(customers)
+
+    return "Invalid report type", 400
+
+
+def generate_payments_csv(payments, start, end):
+    """Generate CSV export of payments"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header
+    period_str = f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}" if start and end else "All Time"
+    writer.writerow([f"Payment Report - {period_str}"])
+    writer.writerow([])
+    writer.writerow(["Date", "Receipt #", "Customer", "City", "Amount", "Previous Balance", "Notes"])
+
+    total = 0
+    for p in payments:
+        writer.writerow([
+            p.payment_date.strftime("%Y-%m-%d"),
+            p.receipt_number or "",
+            p.customer.name if p.customer else "",
+            p.customer.city if p.customer else "",
+            f"{p.amount:.2f}",
+            f"{p.previous_balance:.2f}" if p.previous_balance else "",
+            p.notes or ""
+        ])
+        total += p.amount
+
+    writer.writerow([])
+    writer.writerow(["", "", "", "TOTAL:", f"${total:.2f}", "", ""])
+
+    output.seek(0)
+    filename = f"payments_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_payments_pdf(payments, start, end):
+    """Generate PDF export of payments"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, spaceAfter=10, alignment=1)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=12, spaceAfter=20, alignment=1)
+
+    elements.append(Paragraph("Payment Report", title_style))
+    period_str = f"{start.strftime('%B %d, %Y')} to {end.strftime('%B %d, %Y')}" if start and end else "All Time"
+    elements.append(Paragraph(period_str, subtitle_style))
+    elements.append(Spacer(1, 20))
+
+    # Summary stats
+    total = sum(p.amount for p in payments)
+    elements.append(Paragraph(f"<b>Total Payments:</b> {len(payments)}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Total Collected:</b> ${total:.2f}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # Payments table
+    if payments:
+        table_data = [["Date", "Receipt #", "Customer", "City", "Amount"]]
+        for p in payments:
+            table_data.append([
+                p.payment_date.strftime("%m/%d/%Y"),
+                p.receipt_number or "-",
+                (p.customer.name if p.customer else "-")[:25],
+                (p.customer.city if p.customer else "-")[:15],
+                f"${p.amount:.2f}"
+            ])
+
+        # Add total row
+        table_data.append(["", "", "", "TOTAL:", f"${total:.2f}"])
+
+        table = Table(table_data, colWidths=[1*inch, 1*inch, 2.5*inch, 1.5*inch, 1*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.6)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.9, 0.9, 0.9)),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"payments_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.pdf"
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_summary_csv(payments, start, end):
+    """Generate CSV summary report with breakdowns"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    period_str = f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}" if start and end else "All Time"
+    writer.writerow([f"Financial Summary Report - {period_str}"])
+    writer.writerow([])
+
+    total = sum(p.amount for p in payments)
+    writer.writerow(["SUMMARY"])
+    writer.writerow(["Total Payments", len(payments)])
+    writer.writerow(["Total Collected", f"${total:.2f}"])
+    writer.writerow(["Average Payment", f"${(total/len(payments)):.2f}" if payments else "$0.00"])
+    writer.writerow([])
+
+    # Group by customer
+    by_customer = defaultdict(lambda: {"count": 0, "total": 0})
+    for p in payments:
+        name = p.customer.name if p.customer else "Unknown"
+        by_customer[name]["count"] += 1
+        by_customer[name]["total"] += p.amount
+
+    writer.writerow(["BY CUSTOMER"])
+    writer.writerow(["Customer", "Payment Count", "Total Amount"])
+    for name, data in sorted(by_customer.items(), key=lambda x: x[1]["total"], reverse=True):
+        writer.writerow([name, data["count"], f"${data['total']:.2f}"])
+    writer.writerow([])
+
+    # Group by city
+    by_city = defaultdict(lambda: {"count": 0, "total": 0})
+    for p in payments:
+        city = p.customer.city if p.customer and p.customer.city else "Unknown"
+        by_city[city]["count"] += 1
+        by_city[city]["total"] += p.amount
+
+    writer.writerow(["BY CITY"])
+    writer.writerow(["City", "Payment Count", "Total Amount"])
+    for city, data in sorted(by_city.items(), key=lambda x: x[1]["total"], reverse=True):
+        writer.writerow([city, data["count"], f"${data['total']:.2f}"])
+    writer.writerow([])
+
+    # Group by month
+    by_month = defaultdict(lambda: {"count": 0, "total": 0})
+    for p in payments:
+        month_key = p.payment_date.strftime("%Y-%m")
+        by_month[month_key]["count"] += 1
+        by_month[month_key]["total"] += p.amount
+
+    writer.writerow(["BY MONTH"])
+    writer.writerow(["Month", "Payment Count", "Total Amount"])
+    for month, data in sorted(by_month.items()):
+        writer.writerow([month, data["count"], f"${data['total']:.2f}"])
+
+    output.seek(0)
+    filename = f"summary_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_summary_pdf(payments, start, end):
+    """Generate PDF summary report"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, spaceAfter=10, alignment=1)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=12, spaceAfter=20, alignment=1)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, spaceBefore=20, spaceAfter=10)
+
+    elements.append(Paragraph("Financial Summary Report", title_style))
+    period_str = f"{start.strftime('%B %d, %Y')} to {end.strftime('%B %d, %Y')}" if start and end else "All Time"
+    elements.append(Paragraph(period_str, subtitle_style))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", subtitle_style))
+    elements.append(Spacer(1, 20))
+
+    # Summary stats
+    total = sum(p.amount for p in payments)
+    avg = total / len(payments) if payments else 0
+
+    summary_data = [
+        ["Total Payments", str(len(payments))],
+        ["Total Collected", f"${total:.2f}"],
+        ["Average Payment", f"${avg:.2f}"],
+    ]
+    summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+    summary_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 20))
+
+    # By Customer
+    elements.append(Paragraph("Collections by Customer", section_style))
+    by_customer = defaultdict(lambda: {"count": 0, "total": 0})
+    for p in payments:
+        name = p.customer.name if p.customer else "Unknown"
+        by_customer[name]["count"] += 1
+        by_customer[name]["total"] += p.amount
+
+    customer_data = [["Customer", "Payments", "Total"]]
+    for name, data in sorted(by_customer.items(), key=lambda x: x[1]["total"], reverse=True)[:15]:
+        customer_data.append([name[:30], str(data["count"]), f"${data['total']:.2f}"])
+
+    if customer_data:
+        customer_table = Table(customer_data, colWidths=[3.5*inch, 1*inch, 1.5*inch])
+        customer_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.6)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(customer_table)
+
+    # By Month
+    elements.append(Paragraph("Collections by Month", section_style))
+    by_month = defaultdict(lambda: {"count": 0, "total": 0})
+    for p in payments:
+        month_key = p.payment_date.strftime("%B %Y")
+        by_month[month_key]["count"] += 1
+        by_month[month_key]["total"] += p.amount
+
+    month_data = [["Month", "Payments", "Total"]]
+    for month, data in sorted(by_month.items(), key=lambda x: x[0]):
+        month_data.append([month, str(data["count"]), f"${data['total']:.2f}"])
+
+    if len(month_data) > 1:
+        month_table = Table(month_data, colWidths=[3.5*inch, 1*inch, 1.5*inch])
+        month_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.2, 0.4, 0.6)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(month_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"summary_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.pdf"
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_balances_csv(customers):
+    """Generate CSV of outstanding balances"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([f"Outstanding Balances Report - {datetime.now().strftime('%Y-%m-%d')}"])
+    writer.writerow([])
+    writer.writerow(["Customer", "City", "Phone", "Balance", "Last Visit"])
+
+    total = 0
+    for c in customers:
+        writer.writerow([
+            c.name,
+            c.city or "",
+            c.phone or "",
+            f"${c.balance:.2f}",
+            c.last_visit.strftime("%Y-%m-%d") if c.last_visit else "Never"
+        ])
+        total += c.balance
+
+    writer.writerow([])
+    writer.writerow(["", "", "TOTAL:", f"${total:.2f}", ""])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=balances_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+
+
+def generate_balances_pdf(customers, start, end):
+    """Generate PDF of outstanding balances"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, spaceAfter=10, alignment=1)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=12, spaceAfter=20, alignment=1)
+
+    elements.append(Paragraph("Outstanding Balances Report", title_style))
+    elements.append(Paragraph(f"As of {datetime.now().strftime('%B %d, %Y')}", subtitle_style))
+    elements.append(Spacer(1, 20))
+
+    total = sum(c.balance for c in customers)
+    elements.append(Paragraph(f"<b>Total Customers with Balance:</b> {len(customers)}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Total Outstanding:</b> ${total:.2f}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    if customers:
+        table_data = [["Customer", "City", "Phone", "Balance", "Last Visit"]]
+        for c in customers:
+            table_data.append([
+                c.name[:25],
+                (c.city or "-")[:15],
+                c.phone or "-",
+                f"${c.balance:.2f}",
+                c.last_visit.strftime("%m/%d/%Y") if c.last_visit else "Never"
+            ])
+        table_data.append(["", "", "TOTAL:", f"${total:.2f}", ""])
+
+        table = Table(table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1*inch, 1*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.6, 0.2, 0.2)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.9, 0.9, 0.9)),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=balances_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
 
 
 # Initialize database - runs once at startup
