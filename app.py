@@ -2133,6 +2133,26 @@ def export_report():
         else:
             return generate_balances_csv(customers)
 
+    elif report_type == "tax_exempt":
+        # Tax exempt sales report
+        tax_exempt_customers = Customer.query.filter_by(tax_exempt=True, status='active').all()
+        tax_exempt_ids = [c.id for c in tax_exempt_customers]
+
+        # Get payments for tax exempt customers
+        query = Payment.query.options(db.joinedload(Payment.customer)).filter(
+            Payment.customer_id.in_(tax_exempt_ids) if tax_exempt_ids else False
+        )
+        if start and end:
+            query = query.filter(Payment.payment_date >= start, Payment.payment_date <= end)
+        payments = query.order_by(Payment.payment_date.desc()).all()
+
+        if format_type == "pdf":
+            return generate_tax_exempt_pdf(payments, tax_exempt_customers, start, end)
+        elif format_type == "excel":
+            return generate_tax_exempt_excel(payments, tax_exempt_customers, start, end)
+        else:
+            return generate_tax_exempt_csv(payments, tax_exempt_customers, start, end)
+
     return "Invalid report type", 400
 
 
@@ -2482,6 +2502,240 @@ def generate_balances_pdf(customers, start, end):
         buffer.getvalue(),
         mimetype="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=balances_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
+def generate_tax_exempt_csv(payments, customers, start, end):
+    """Generate CSV of tax exempt sales"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    period_str = f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}" if start and end else "All Time"
+    writer.writerow([f"Tax Exempt Sales Report - {period_str}"])
+    writer.writerow([])
+
+    # Summary section
+    writer.writerow(["SUMMARY"])
+    writer.writerow(["Tax Exempt Customers:", len(customers)])
+    writer.writerow(["Total Transactions:", len(payments)])
+    total = sum(p.amount for p in payments)
+    writer.writerow(["Total Tax Exempt Sales:", f"${total:.2f}"])
+    writer.writerow([])
+
+    # Customer list
+    writer.writerow(["TAX EXEMPT CUSTOMERS"])
+    writer.writerow(["Name", "City", "Phone", "Address"])
+    for c in customers:
+        writer.writerow([c.name, c.city or "", c.phone or "", c.address or ""])
+    writer.writerow([])
+
+    # Transaction details
+    writer.writerow(["TRANSACTION DETAILS"])
+    writer.writerow(["Date", "Receipt #", "Customer", "City", "Amount", "Notes"])
+    for p in payments:
+        writer.writerow([
+            p.payment_date.strftime("%Y-%m-%d"),
+            p.receipt_number or "",
+            p.customer.name if p.customer else "",
+            p.customer.city if p.customer else "",
+            f"${p.amount:.2f}",
+            p.notes or ""
+        ])
+    writer.writerow([])
+    writer.writerow(["", "", "", "TOTAL:", f"${total:.2f}", ""])
+
+    output.seek(0)
+    filename = f"tax_exempt_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_tax_exempt_pdf(payments, customers, start, end):
+    """Generate PDF of tax exempt sales"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, spaceAfter=10, alignment=1)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=12, spaceAfter=20, alignment=1)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, spaceAfter=10, spaceBefore=20)
+
+    elements.append(Paragraph("Tax Exempt Sales Report", title_style))
+    period_str = f"{start.strftime('%B %d, %Y')} to {end.strftime('%B %d, %Y')}" if start and end else "All Time"
+    elements.append(Paragraph(period_str, subtitle_style))
+    elements.append(Spacer(1, 10))
+
+    # Summary stats
+    total = sum(p.amount for p in payments)
+    elements.append(Paragraph(f"<b>Tax Exempt Customers:</b> {len(customers)}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Total Transactions:</b> {len(payments)}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Total Tax Exempt Sales:</b> ${total:.2f}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # Tax exempt customers table
+    if customers:
+        elements.append(Paragraph("Tax Exempt Customers", section_style))
+        cust_data = [["Name", "City", "Phone"]]
+        for c in customers:
+            cust_data.append([c.name[:30], (c.city or "-")[:20], c.phone or "-"])
+
+        cust_table = Table(cust_data, colWidths=[2.5*inch, 2*inch, 1.5*inch])
+        cust_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.8, 0.6, 0.2)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(cust_table)
+        elements.append(Spacer(1, 20))
+
+    # Transactions table
+    if payments:
+        elements.append(Paragraph("Transaction Details", section_style))
+        table_data = [["Date", "Receipt #", "Customer", "Amount"]]
+        for p in payments:
+            table_data.append([
+                p.payment_date.strftime("%m/%d/%Y"),
+                p.receipt_number or "-",
+                (p.customer.name if p.customer else "-")[:25],
+                f"${p.amount:.2f}"
+            ])
+        table_data.append(["", "", "TOTAL:", f"${total:.2f}"])
+
+        table = Table(table_data, colWidths=[1.2*inch, 1.2*inch, 2.5*inch, 1.2*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.8, 0.6, 0.2)),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.Color(0.9, 0.9, 0.9)),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"tax_exempt_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.pdf"
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+def generate_tax_exempt_excel(payments, customers, start, end):
+    """Generate Excel file of tax exempt sales"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+
+    # Summary sheet
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+
+    header_fill = PatternFill(start_color="D4A84B", end_color="D4A84B", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    period_str = f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}" if start and end else "All Time"
+    ws_summary['A1'] = "Tax Exempt Sales Report"
+    ws_summary['A1'].font = Font(bold=True, size=16)
+    ws_summary['A2'] = period_str
+    ws_summary['A2'].font = Font(size=12, italic=True)
+
+    ws_summary['A4'] = "Tax Exempt Customers:"
+    ws_summary['B4'] = len(customers)
+    ws_summary['A5'] = "Total Transactions:"
+    ws_summary['B5'] = len(payments)
+    total = sum(p.amount for p in payments)
+    ws_summary['A6'] = "Total Tax Exempt Sales:"
+    ws_summary['B6'] = f"${total:.2f}"
+
+    for cell in ['A4', 'A5', 'A6']:
+        ws_summary[cell].font = Font(bold=True)
+
+    ws_summary.column_dimensions['A'].width = 25
+    ws_summary.column_dimensions['B'].width = 20
+
+    # Customers sheet
+    ws_customers = wb.create_sheet("Tax Exempt Customers")
+    headers = ["Name", "City", "Phone", "Address"]
+    for col, header in enumerate(headers, 1):
+        cell = ws_customers.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+
+    for row, c in enumerate(customers, 2):
+        ws_customers.cell(row=row, column=1, value=c.name).border = thin_border
+        ws_customers.cell(row=row, column=2, value=c.city or "").border = thin_border
+        ws_customers.cell(row=row, column=3, value=c.phone or "").border = thin_border
+        ws_customers.cell(row=row, column=4, value=c.address or "").border = thin_border
+
+    ws_customers.column_dimensions['A'].width = 30
+    ws_customers.column_dimensions['B'].width = 20
+    ws_customers.column_dimensions['C'].width = 15
+    ws_customers.column_dimensions['D'].width = 40
+
+    # Transactions sheet
+    ws_trans = wb.create_sheet("Transactions")
+    headers = ["Date", "Receipt #", "Customer", "City", "Amount", "Notes"]
+    for col, header in enumerate(headers, 1):
+        cell = ws_trans.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+
+    for row, p in enumerate(payments, 2):
+        ws_trans.cell(row=row, column=1, value=p.payment_date.strftime("%Y-%m-%d")).border = thin_border
+        ws_trans.cell(row=row, column=2, value=p.receipt_number or "").border = thin_border
+        ws_trans.cell(row=row, column=3, value=p.customer.name if p.customer else "").border = thin_border
+        ws_trans.cell(row=row, column=4, value=p.customer.city if p.customer else "").border = thin_border
+        ws_trans.cell(row=row, column=5, value=p.amount).border = thin_border
+        ws_trans.cell(row=row, column=5).number_format = '$#,##0.00'
+        ws_trans.cell(row=row, column=6, value=p.notes or "").border = thin_border
+
+    # Add total row
+    total_row = len(payments) + 2
+    ws_trans.cell(row=total_row, column=4, value="TOTAL:").font = Font(bold=True)
+    ws_trans.cell(row=total_row, column=5, value=total).font = Font(bold=True)
+    ws_trans.cell(row=total_row, column=5).number_format = '$#,##0.00'
+
+    ws_trans.column_dimensions['A'].width = 12
+    ws_trans.column_dimensions['B'].width = 12
+    ws_trans.column_dimensions['C'].width = 25
+    ws_trans.column_dimensions['D'].width = 15
+    ws_trans.column_dimensions['E'].width = 12
+    ws_trans.column_dimensions['F'].width = 30
+
+    # Save to buffer
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = f"tax_exempt_{start.strftime('%Y%m%d') if start else 'all'}_{end.strftime('%Y%m%d') if end else 'time'}.xlsx"
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
