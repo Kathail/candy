@@ -42,3 +42,8 @@ Thumbs.db
 # Skeleton template folder
 skeleton/
 leads.csv
+
+# =========================
+# Local documentation
+# =========================
+docs/
