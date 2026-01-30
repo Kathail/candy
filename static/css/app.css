@@ -56,6 +56,11 @@ body {
 .scrollable-table {
     max-height: 60vh;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.scrollable-table table {
+    min-width: 600px; /* Ensures table doesn't collapse on mobile */
 }
 
 .scrollable-table table thead {
@@ -63,6 +68,19 @@ body {
     top: 0;
     z-index: 10;
     background: var(--panel2);
+}
+
+/* Mobile table improvements */
+@media (max-width: 640px) {
+    .scrollable-table table {
+        font-size: 0.875rem;
+    }
+
+    .scrollable-table table th,
+    .scrollable-table table td {
+        padding: 0.5rem 0.75rem;
+        white-space: nowrap;
+    }
 }
 
 /* HTMX Loading Indicators */

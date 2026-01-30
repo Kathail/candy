@@ -12,93 +12,93 @@
     </div>
 
     <!-- Quick Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">This Week</div>
-            <div class="text-2xl font-semibold text-good">${{ "%.2f"|format(week_stats.total) }}</div>
+            <div class="text-lg md:text-2xl font-semibold text-good">${{ "%.2f"|format(week_stats.total) }}</div>
             <div class="text-xs text-muted">{{ week_stats.count }} payments</div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">This Month</div>
-            <div class="text-2xl font-semibold text-good">${{ "%.2f"|format(month_stats.total) }}</div>
+            <div class="text-lg md:text-2xl font-semibold text-good">${{ "%.2f"|format(month_stats.total) }}</div>
             <div class="text-xs text-muted">{{ month_stats.count }} payments</div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">This Quarter</div>
-            <div class="text-2xl font-semibold text-good">${{ "%.2f"|format(quarter_stats.total) }}</div>
+            <div class="text-lg md:text-2xl font-semibold text-good">${{ "%.2f"|format(quarter_stats.total) }}</div>
             <div class="text-xs text-muted">{{ quarter_stats.count }} payments</div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">This Year</div>
-            <div class="text-2xl font-semibold text-good">${{ "%.2f"|format(year_stats.total) }}</div>
+            <div class="text-lg md:text-2xl font-semibold text-good">${{ "%.2f"|format(year_stats.total) }}</div>
             <div class="text-xs text-muted">{{ year_stats.count }} payments</div>
         </div>
     </div>
 
     <!-- Quick Export Buttons -->
-    <div class="bg-panel rounded-xl shadow-soft p-6 mb-6">
+    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-6">
         <h2 class="text-lg font-semibold mb-4">Quick Exports</h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
             <!-- This Week -->
-            <div class="bg-panel2 rounded-lg p-4">
-                <div class="text-sm font-semibold mb-2">This Week</div>
-                <div class="text-xs text-muted mb-3">{{ week_start.strftime('%b %d') }} - {{ week_end.strftime('%b %d, %Y') }}</div>
-                <div class="flex gap-2">
+            <div class="bg-panel2 rounded-lg p-3 md:p-4">
+                <div class="text-sm font-semibold mb-1 md:mb-2">This Week</div>
+                <div class="text-xs text-muted mb-2 md:mb-3 hidden sm:block">{{ week_start.strftime('%b %d') }} - {{ week_end.strftime('%b %d') }}</div>
+                <div class="flex gap-1 md:gap-2">
                     <a href="/reports/export?type=payments&period=week&format=csv"
-                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         CSV
                     </a>
                     <a href="/reports/export?type=payments&period=week&format=pdf"
-                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         PDF
                     </a>
                 </div>
             </div>
 
             <!-- This Month -->
-            <div class="bg-panel2 rounded-lg p-4">
-                <div class="text-sm font-semibold mb-2">This Month</div>
-                <div class="text-xs text-muted mb-3">{{ month_start.strftime('%b %d') }} - {{ month_end.strftime('%b %d, %Y') }}</div>
-                <div class="flex gap-2">
+            <div class="bg-panel2 rounded-lg p-3 md:p-4">
+                <div class="text-sm font-semibold mb-1 md:mb-2">This Month</div>
+                <div class="text-xs text-muted mb-2 md:mb-3 hidden sm:block">{{ month_start.strftime('%b %d') }} - {{ month_end.strftime('%b %d') }}</div>
+                <div class="flex gap-1 md:gap-2">
                     <a href="/reports/export?type=payments&period=month&format=csv"
-                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         CSV
                     </a>
                     <a href="/reports/export?type=payments&period=month&format=pdf"
-                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         PDF
                     </a>
                 </div>
             </div>
 
             <!-- This Quarter -->
-            <div class="bg-panel2 rounded-lg p-4">
-                <div class="text-sm font-semibold mb-2">This Quarter</div>
-                <div class="text-xs text-muted mb-3">{{ quarter_start.strftime('%b %d') }} - {{ quarter_end.strftime('%b %d, %Y') }}</div>
-                <div class="flex gap-2">
+            <div class="bg-panel2 rounded-lg p-3 md:p-4">
+                <div class="text-sm font-semibold mb-1 md:mb-2">This Quarter</div>
+                <div class="text-xs text-muted mb-2 md:mb-3 hidden sm:block">{{ quarter_start.strftime('%b %d') }} - {{ quarter_end.strftime('%b %d') }}</div>
+                <div class="flex gap-1 md:gap-2">
                     <a href="/reports/export?type=payments&period=quarter&format=csv"
-                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         CSV
                     </a>
                     <a href="/reports/export?type=payments&period=quarter&format=pdf"
-                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         PDF
                     </a>
                 </div>
             </div>
 
             <!-- This Year -->
-            <div class="bg-panel2 rounded-lg p-4">
-                <div class="text-sm font-semibold mb-2">This Year</div>
-                <div class="text-xs text-muted mb-3">{{ year_start.strftime('%b %d') }} - {{ year_end.strftime('%b %d, %Y') }}</div>
-                <div class="flex gap-2">
+            <div class="bg-panel2 rounded-lg p-3 md:p-4">
+                <div class="text-sm font-semibold mb-1 md:mb-2">This Year</div>
+                <div class="text-xs text-muted mb-2 md:mb-3 hidden sm:block">{{ year_start.strftime('%b %d') }} - {{ year_end.strftime('%b %d') }}</div>
+                <div class="flex gap-1 md:gap-2">
                     <a href="/reports/export?type=payments&period=year&format=csv"
-                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-brand hover:bg-blue-700 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         CSV
                     </a>
                     <a href="/reports/export?type=payments&period=year&format=pdf"
-                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded text-center transition">
+                       class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-2 md:px-3 py-1.5 md:py-2 rounded text-center transition">
                         PDF
                     </a>
                 </div>
@@ -161,37 +161,37 @@
     </div>
 
     <!-- Custom Date Range -->
-    <div class="bg-panel rounded-xl shadow-soft p-6">
+    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6">
         <h2 class="text-lg font-semibold mb-4">Custom Date Range</h2>
         <form id="custom-export-form" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                 <div>
                     <label class="block text-xs text-muted mb-1">Report Type</label>
-                    <select name="type" class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-                        <option value="payments">Payment Report</option>
-                        <option value="summary">Financial Summary</option>
+                    <select name="type" class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                        <option value="payments">Payments</option>
+                        <option value="summary">Summary</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs text-muted mb-1">Start Date</label>
                     <input type="date" name="start" value="{{ month_start.strftime('%Y-%m-%d') }}"
-                           class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                           class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 </div>
                 <div>
                     <label class="block text-xs text-muted mb-1">End Date</label>
                     <input type="date" name="end" value="{{ today.strftime('%Y-%m-%d') }}"
-                           class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                           class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 </div>
                 <div>
                     <label class="block text-xs text-muted mb-1">Format</label>
-                    <select name="format" class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-                        <option value="csv">CSV (Spreadsheet)</option>
-                        <option value="pdf">PDF (Print)</option>
+                    <select name="format" class="w-full bg-panel2 border border-border rounded-md px-2 md:px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                        <option value="csv">CSV</option>
+                        <option value="pdf">PDF</option>
                     </select>
                 </div>
             </div>
             <button type="submit"
-                    class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2 rounded-md transition">
+                    class="w-full md:w-auto bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2 rounded-md transition">
                 Generate Report
             </button>
         </form>

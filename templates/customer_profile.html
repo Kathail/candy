@@ -14,11 +14,11 @@
     </div>
 
     <!-- Header -->
-    <div class="bg-panel rounded-xl shadow-soft p-6 mb-4">
-        <div class="flex items-start justify-between mb-4">
+    <div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
             <div>
-                <h1 class="text-2xl font-semibold">{{ customer.name }}</h1>
-                <p class="text-muted">{{ customer.city or 'No city' }}</p>
+                <h1 class="text-xl md:text-2xl font-semibold">{{ customer.name }}</h1>
+                <p class="text-muted text-sm">{{ customer.city or 'No city' }}</p>
                 {% if customer.status == 'inactive' %}
                 <span class="inline-block mt-2 text-xs bg-warn/20 text-warn px-2 py-1 rounded">Archived</span>
                 {% elif customer.status == 'lead' %}
@@ -27,13 +27,13 @@
             </div>
             <button
                 onclick="openEditModal({{ customer.id }})"
-                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition w-full sm:w-auto">
                 Edit Customer
             </button>
         </div>
 
         <!-- Contact Info Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 pt-4 border-t border-border">
             <div>
                 <div class="text-xs text-muted mb-1">Phone</div>
                 {% if customer.phone %}
@@ -70,26 +70,26 @@
     </div>
 
     <!-- Balance & Stats Row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">Current Balance</div>
-            <div class="text-2xl font-semibold {% if customer.balance > 0 %}text-warn{% else %}text-good{% endif %}">
+            <div class="text-xl md:text-2xl font-semibold {% if customer.balance > 0 %}text-warn{% else %}text-good{% endif %}">
                 ${{ "%.2f"|format(customer.balance) }}
             </div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">Total Paid</div>
-            <div class="text-2xl font-semibold text-good">
+            <div class="text-xl md:text-2xl font-semibold text-good">
                 ${{ "%.2f"|format(customer.payments|sum(attribute='amount') if customer.payments else 0) }}
             </div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">Total Visits</div>
-            <div class="text-2xl font-semibold">{{ customer.stops|length }}</div>
+            <div class="text-xl md:text-2xl font-semibold">{{ customer.stops|length }}</div>
         </div>
-        <div class="bg-panel rounded-xl shadow-soft p-4">
+        <div class="bg-panel rounded-xl shadow-soft p-3 md:p-4">
             <div class="text-xs text-muted mb-1">Total Payments</div>
-            <div class="text-2xl font-semibold">{{ customer.payments|length }}</div>
+            <div class="text-xl md:text-2xl font-semibold">{{ customer.payments|length }}</div>
         </div>
     </div>
 
