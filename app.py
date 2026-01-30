@@ -2788,8 +2788,10 @@ def init_db():
 
         # Migrate customer table - add tax_exempt column
         if "customer" in inspector.get_table_names() and not column_exists("customer", "tax_exempt"):
-            db.session.execute(text("ALTER TABLE customer ADD COLUMN tax_exempt BOOLEAN DEFAULT 0"))
-            db.session.execute(text("UPDATE customer SET tax_exempt = 0 WHERE tax_exempt IS NULL"))
+            if is_postgres:
+                db.session.execute(text("ALTER TABLE customer ADD COLUMN tax_exempt BOOLEAN DEFAULT FALSE"))
+            else:
+                db.session.execute(text("ALTER TABLE customer ADD COLUMN tax_exempt BOOLEAN DEFAULT 0"))
             db.session.commit()
             logger.info("Added tax_exempt column to customer table")
 
