@@ -116,12 +116,46 @@
             <table class="w-full text-sm">
                 <thead class="bg-panel2 text-muted">
                     <tr>
-                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Name</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">
+                            <a href="?sort=name&status={{ request.args.get('status', 'active') }}&filter={{ request.args.get('filter', '') }}&query={{ request.args.get('query', '') }}"
+                               class="flex items-center gap-1 hover:text-white transition">
+                                Name
+                                {% if request.args.get('sort', 'name') == 'name' %}
+                                <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                {% else %}
+                                <svg class="w-4 h-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                {% endif %}
+                            </a>
+                        </th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Phone</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Address</th>
                         <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Notes</th>
-                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">Last Visited</th>
-                        <th class="text-right px-4 py-3 font-semibold whitespace-nowrap">Balance</th>
+                        <th class="text-left px-4 py-3 font-semibold whitespace-nowrap">
+                            <a href="?sort={% if request.args.get('sort') == 'last_visit_oldest' %}last_visit_recent{% else %}last_visit_oldest{% endif %}&status={{ request.args.get('status', 'active') }}&filter={{ request.args.get('filter', '') }}&query={{ request.args.get('query', '') }}"
+                               class="flex items-center gap-1 hover:text-white transition">
+                                Last Visited
+                                {% if request.args.get('sort') == 'last_visit_oldest' %}
+                                <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                {% elif request.args.get('sort') == 'last_visit_recent' %}
+                                <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                {% else %}
+                                <svg class="w-4 h-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th class="text-right px-4 py-3 font-semibold whitespace-nowrap">
+                            <a href="?sort={% if request.args.get('sort') == 'balance_high' %}balance_low{% else %}balance_high{% endif %}&status={{ request.args.get('status', 'active') }}&filter={{ request.args.get('filter', '') }}&query={{ request.args.get('query', '') }}"
+                               class="flex items-center justify-end gap-1 hover:text-white transition">
+                                Balance
+                                {% if request.args.get('sort') == 'balance_high' %}
+                                <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                {% elif request.args.get('sort') == 'balance_low' %}
+                                <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                {% else %}
+                                <svg class="w-4 h-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                {% endif %}
+                            </a>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
