@@ -52,11 +52,10 @@ def create_app():
 
     if database_url.startswith("libsql://"):
         import libsql_experimental as libsql
-        _libsql_url = database_url
-        _libsql_token = turso_token
-        engine_options["creator"] = lambda: libsql.connect(_libsql_url, auth_token=_libsql_token)
-        engine_options["pool_pre_ping"] = False
-        engine_options["pool_recycle"] = 300
+        from sqlalchemy.pool import StaticPool
+        _libsql_conn = libsql.connect(database_url, auth_token=turso_token)
+        engine_options["creator"] = lambda: _libsql_conn
+        engine_options["poolclass"] = StaticPool
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite+libsql://"
     elif database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
