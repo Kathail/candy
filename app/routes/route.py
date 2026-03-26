@@ -60,7 +60,7 @@ def route():
 @bp.route("/route/stop/<int:stop_id>")
 @login_required
 def route_stop_details(stop_id):
-    stop = RouteStop.query.get_or_404(stop_id)
+    stop = RouteStop.query.options(db.joinedload(RouteStop.customer)).get_or_404(stop_id)
     return render_template("partials/stop_details.html", stop=stop)
 
 
