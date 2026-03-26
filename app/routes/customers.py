@@ -356,7 +356,7 @@ def customer_activity(customer_id):
         .all()
     )
     return render_template(
-        "partials/activity_log.html",
+        "partials/activity.html",
         customer=customer,
         activities=activities,
     )

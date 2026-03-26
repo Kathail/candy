@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Route Summary{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+    <a href="/route" class="text-brand hover:underline text-sm flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to Route
+    </a>
+</div>
+
+<h1 class="text-2xl font-semibold mb-4">Route Summary - {{ today.strftime('%b %d, %Y') }}</h1>
+
+<!-- Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-panel rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-good">{{ completed }}</div>
+        <div class="text-xs text-muted">Completed</div>
+    </div>
+    <div class="bg-panel rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold">{{ total }}</div>
+        <div class="text-xs text-muted">Total Stops</div>
+    </div>
+    <div class="bg-panel rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-good">${{ collected_today }}</div>
+        <div class="text-xs text-muted">Collected</div>
+    </div>
+    <div class="bg-panel rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-warn">${{ outstanding_balance }}</div>
+        <div class="text-xs text-muted">Outstanding</div>
+    </div>
+</div>
+
+<!-- Completed Stops -->
+{% if completed_stops %}
+<div class="bg-panel rounded-xl shadow-soft p-4 mb-4">
+    <h2 class="text-lg font-semibold mb-3 text-good">Completed ({{ completed_stops|length }})</h2>
+    <div class="space-y-2">
+        {% for stop in completed_stops %}
+        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-2">
+            <div>
+                <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
+                {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}
+            </div>
+            {% if stop.notes %}<span class="text-xs text-muted">{{ stop.notes }}</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Skipped Stops -->
+{% if skipped_stops %}
+<div class="bg-panel rounded-xl shadow-soft p-4 mb-4">
+    <h2 class="text-lg font-semibold mb-3 text-warn">Skipped ({{ skipped_stops|length }})</h2>
+    <div class="space-y-2">
+        {% for stop in skipped_stops %}
+        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-2">
+            <div>
+                <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
+                {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}
+            </div>
+            <span class="text-xs bg-warn/20 text-warn px-2 py-0.5 rounded">Not visited</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tomorrow Preview -->
+{% if tomorrow_stops %}
+<div class="bg-panel rounded-xl shadow-soft p-4">
+    <h2 class="text-lg font-semibold mb-3">Tomorrow's Route ({{ tomorrow_stops|length }} stops)</h2>
+    <div class="space-y-2">
+        {% for stop in tomorrow_stops %}
+        <div class="flex items-center bg-panel2 rounded-lg px-3 py-2">
+            <span class="text-xs text-muted w-6">{{ stop.sequence }}</span>
+            <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
+            {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-panel rounded-xl shadow-soft p-4 text-center text-muted">
+    <p>No stops planned for tomorrow.</p>
+    <a href="/planner" class="text-brand hover:underline text-sm mt-2 inline-block">Plan tomorrow's route</a>
+</div>
+{% endif %}
+
+{% endblock %}
