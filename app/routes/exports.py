@@ -6,6 +6,7 @@ from flask import Blueprint, Response, request
 from flask_login import login_required
 
 from app import db
+from app.helpers import sanitize_csv_value as _s
 from app.models import Customer, Payment, RouteStop
 
 bp = Blueprint("exports", __name__)
@@ -28,11 +29,11 @@ def export_customers():
     for c in customers_list:
         writer.writerow([
             c.id,
-            c.name,
-            c.city or "",
-            c.address or "",
-            c.phone or "",
-            c.notes or "",
+            _s(c.name),
+            _s(c.city or ""),
+            _s(c.address or ""),
+            _s(c.phone or ""),
+            _s(c.notes or ""),
             f"{c.balance:.2f}",
             c.last_visit.strftime("%Y-%m-%d") if c.last_visit else "",
             c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else ""
@@ -68,12 +69,12 @@ def export_payments():
         writer.writerow([
             p.id,
             p.receipt_number or "",
-            p.customer.name if p.customer else "",
-            p.customer.city if p.customer else "",
+            _s(p.customer.name if p.customer else ""),
+            _s(p.customer.city if p.customer else ""),
             f"{p.amount:.2f}",
             f"{p.previous_balance:.2f}" if p.previous_balance is not None else "",
             p.payment_date.strftime("%Y-%m-%d"),
-            p.notes or ""
+            _s(p.notes or "")
         ])
 
     output.seek(0)
@@ -126,10 +127,10 @@ def export_routes():
             s.id,
             s.route_date.strftime("%Y-%m-%d"),
             s.sequence,
-            s.customer.name if s.customer else "",
-            s.customer.city if s.customer else "",
+            _s(s.customer.name if s.customer else ""),
+            _s(s.customer.city if s.customer else ""),
             "Yes" if s.completed else "No",
-            s.notes or ""
+            _s(s.notes or "")
         ])
 
     output.seek(0)

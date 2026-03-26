@@ -114,3 +114,10 @@ def generate_receipt_pdf(payment):
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
+def sanitize_csv_value(value):
+    """Prevent CSV formula injection by prefixing dangerous characters."""
+    if isinstance(value, str) and value and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + value
+    return value

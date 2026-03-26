@@ -7,6 +7,7 @@ from flask import Blueprint, Response, render_template, request
 from flask_login import login_required
 
 from app import db
+from app.helpers import sanitize_csv_value as _s
 from app.models import Customer, Payment
 
 bp = Blueprint("reports", __name__)
@@ -210,11 +211,11 @@ def _generate_payments_csv(payments, start, end):
         writer.writerow([
             p.payment_date.strftime("%Y-%m-%d"),
             p.receipt_number or "",
-            p.customer.name if p.customer else "",
-            p.customer.city if p.customer else "",
+            _s(p.customer.name if p.customer else ""),
+            _s(p.customer.city if p.customer else ""),
             f"{p.amount:.2f}",
             f"{p.previous_balance:.2f}" if p.previous_balance else "",
-            p.notes or ""
+            _s(p.notes or "")
         ])
         total += float(p.amount)
 
@@ -318,7 +319,7 @@ def _generate_summary_csv(payments, start, end):
     writer.writerow(["BY CUSTOMER"])
     writer.writerow(["Customer", "Payment Count", "Total Amount"])
     for name, data in sorted(by_customer.items(), key=lambda x: x[1]["total"], reverse=True):
-        writer.writerow([name, data["count"], f"${data['total']:.2f}"])
+        writer.writerow([_s(name), data["count"], f"${data['total']:.2f}"])
     writer.writerow([])
 
     by_city = defaultdict(lambda: {"count": 0, "total": 0})
@@ -330,7 +331,7 @@ def _generate_summary_csv(payments, start, end):
     writer.writerow(["BY CITY"])
     writer.writerow(["City", "Payment Count", "Total Amount"])
     for city, data in sorted(by_city.items(), key=lambda x: x[1]["total"], reverse=True):
-        writer.writerow([city, data["count"], f"${data['total']:.2f}"])
+        writer.writerow([_s(city), data["count"], f"${data['total']:.2f}"])
     writer.writerow([])
 
     by_month = defaultdict(lambda: {"count": 0, "total": 0})
@@ -467,9 +468,9 @@ def _generate_balances_csv(customers):
     total = 0
     for c in customers:
         writer.writerow([
-            c.name,
-            c.city or "",
-            c.phone or "",
+            _s(c.name),
+            _s(c.city or ""),
+            _s(c.phone or ""),
             f"${c.balance:.2f}",
             c.last_visit.strftime("%Y-%m-%d") if c.last_visit else "Never"
         ])
@@ -565,7 +566,7 @@ def _generate_tax_exempt_csv(payments, customers, start, end):
     writer.writerow(["TAX EXEMPT CUSTOMERS"])
     writer.writerow(["Name", "City", "Phone", "Address"])
     for c in customers:
-        writer.writerow([c.name, c.city or "", c.phone or "", c.address or ""])
+        writer.writerow([_s(c.name), _s(c.city or ""), _s(c.phone or ""), _s(c.address or "")])
     writer.writerow([])
 
     writer.writerow(["TRANSACTION DETAILS"])
@@ -574,10 +575,10 @@ def _generate_tax_exempt_csv(payments, customers, start, end):
         writer.writerow([
             p.payment_date.strftime("%Y-%m-%d"),
             p.receipt_number or "",
-            p.customer.name if p.customer else "",
-            p.customer.city if p.customer else "",
+            _s(p.customer.name if p.customer else ""),
+            _s(p.customer.city if p.customer else ""),
             f"${p.amount:.2f}",
-            p.notes or ""
+            _s(p.notes or "")
         ])
     writer.writerow([])
     writer.writerow(["", "", "", "TOTAL:", f"${total:.2f}", ""])
