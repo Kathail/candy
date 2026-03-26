@@ -55,6 +55,8 @@ def create_app():
         _libsql_url = database_url
         _libsql_token = turso_token
         engine_options["creator"] = lambda: libsql.connect(_libsql_url, auth_token=_libsql_token)
+        engine_options["pool_pre_ping"] = False
+        engine_options["pool_recycle"] = 300
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite+libsql://"
     elif database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
