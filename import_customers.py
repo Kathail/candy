@@ -2,6 +2,7 @@ import csv
 import os
 import sys
 
+<<<<<<< HEAD
 import psycopg
 
 CSV_PATH = "customers_backup.csv"
@@ -14,6 +15,13 @@ if not DATABASE_URL:
 if not os.path.exists(CSV_PATH):
     print(f"ERROR: CSV file not found: {CSV_PATH}")
     sys.exit(1)
+=======
+# Import your Flask app
+from app import create_app, db
+from app.models import Customer, Payment, RouteStop
+
+app = create_app()
+>>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
 
 
 def normalize(value: str | None) -> str | None:

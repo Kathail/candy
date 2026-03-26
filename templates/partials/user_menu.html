@@ -1,0 +1,24 @@
+<div class="space-y-3">
+    <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
+            <span class="text-brand font-semibold text-sm">{{ current_user.username[0].upper() }}</span>
+        </div>
+        <div>
+            <div class="text-sm font-medium">{{ current_user.username }}</div>
+            <div class="text-xs text-muted">{{ current_user.email }}</div>
+        </div>
+    </div>
+    <div class="flex items-center gap-2 pt-2 border-t border-border/50">
+        <a href="{{ url_for('auth.change_password') }}"
+           class="flex-1 text-center text-xs text-muted hover:text-white py-1.5 px-2 rounded hover:bg-panel2 transition">
+            Change Password
+        </a>
+        <form method="POST" action="{{ url_for('auth.logout') }}" class="flex-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit"
+               class="w-full text-center text-xs text-muted hover:text-danger py-1.5 px-2 rounded hover:bg-panel2 transition">
+                Logout
+            </button>
+        </form>
+    </div>
+</div>

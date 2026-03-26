@@ -4,12 +4,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+<<<<<<< HEAD
 .Python
 *.so
 *.egg
 *.egg-info/
 dist/
 build/
+=======
+
+# =========================
+# Virtual environments
+# =========================
+venv/
+.venv/
+>>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
 .env
 .DS_Store
 *.db

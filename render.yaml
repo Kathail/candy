@@ -1,6 +1,7 @@
 services:
   - type: web
     name: candy-dash
+<<<<<<< HEAD
     runtime: python
     region: virginia
     buildCommand: pip install -r requirements.txt
@@ -18,3 +19,17 @@ databases:
     databaseName: candy_dash
     user: candy_user
     region: virginia
+=======
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+>>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
