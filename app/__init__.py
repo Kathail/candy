@@ -71,10 +71,6 @@ def create_app():
     turso_token = os.environ.get("TURSO_AUTH_TOKEN")
     engine_options = {}
 
-    # Debug: log what DB URL the app is actually using (redact token)
-    print(f"[app] DATABASE_URL={database_url}", flush=True)
-    print(f"[app] TURSO_AUTH_TOKEN={'set (' + turso_token[:20] + '...)' if turso_token else 'NOT SET'}", flush=True)
-
     if database_url.startswith("libsql://"):
         import libsql_experimental as libsql
         from sqlalchemy.pool import StaticPool

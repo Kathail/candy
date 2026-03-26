@@ -4,12 +4,12 @@ services:
     runtime: python
     region: virginia
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app --timeout 120 --workers 2
+    startCommand: gunicorn wsgi:app --timeout 120 --workers 2 --preload
     envVars:
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: TURSO_AUTH_TOKEN
