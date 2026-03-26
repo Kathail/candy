@@ -88,6 +88,7 @@ def create_app():
     # ---------- Security ----------
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
+    app.config["WTF_CSRF_SSL_STRICT"] = False  # Disable Referer check behind reverse proxy
 
     # Session
     app.config["SESSION_COOKIE_SECURE"] = not is_dev
@@ -103,11 +104,16 @@ def create_app():
     limiter.init_app(app)
 
     # Talisman (production only)
+    # Note: Render handles HTTPS termination at the proxy level.
+    # force_https and session_cookie must be disabled to avoid
+    # Referer header checks that fail behind Render's reverse proxy.
     if not is_dev:
         from flask_talisman import Talisman
         Talisman(
             app,
-            force_https=False,  # Render handles HTTPS at proxy level
+            force_https=False,
+            session_cookie_secure=True,
+            session_cookie_http_only=True,
             strict_transport_security=True,
             content_security_policy={
                 "default-src": "'self'",
@@ -119,7 +125,7 @@ def create_app():
             },
             frame_options="DENY",
             content_security_policy_nonce_in=[],
-            referrer_policy="strict-origin-when-cross-origin",
+            referrer_policy="no-referrer-when-downgrade",
         )
 
     from app import models  # noqa: F401
