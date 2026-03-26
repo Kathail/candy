@@ -48,30 +48,34 @@ def balances():
     avg_balance = (stats[1] or 0) if stats else 0
     highest_balance = (stats[2] or 0) if stats else 0
 
-    # Compute aging buckets based on last payment date
+    # Compute aging buckets using SQL subquery (avoids loading all customers + payments)
     today = datetime.now(timezone.utc).date()
-    all_with_balance = Customer.query.filter(Customer.balance > 0, Customer.status == 'active').all()
+    from sqlalchemy import case, func
+    last_pay = db.session.query(
+        Payment.customer_id,
+        func.max(Payment.payment_date).label("last_date")
+    ).group_by(Payment.customer_id).subquery()
+
+    aging_query = db.session.query(
+        case(
+            (last_pay.c.last_date == None, "never"),
+            (func.julianday(today.isoformat()) - func.julianday(last_pay.c.last_date) <= 30, "0_30"),
+            (func.julianday(today.isoformat()) - func.julianday(last_pay.c.last_date) <= 60, "31_60"),
+            (func.julianday(today.isoformat()) - func.julianday(last_pay.c.last_date) <= 90, "61_90"),
+            else_="90_plus"
+        ).label("bucket"),
+        func.count(Customer.id),
+        func.sum(Customer.balance),
+    ).outerjoin(last_pay, Customer.id == last_pay.c.customer_id).filter(
+        Customer.balance > 0, Customer.status == 'active'
+    ).group_by("bucket").all()
+
     aging_buckets = {"0_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0, "never": 0}
     aging_amounts = {"0_30": 0.0, "31_60": 0.0, "61_90": 0.0, "90_plus": 0.0, "never": 0.0}
-    for c in all_with_balance:
-        last_payment = max(c.payments, key=lambda p: p.payment_date, default=None) if c.payments else None
-        if last_payment is None:
-            aging_buckets["never"] += 1
-            aging_amounts["never"] += float(c.balance)
-        else:
-            days = (today - last_payment.payment_date).days
-            if days <= 30:
-                aging_buckets["0_30"] += 1
-                aging_amounts["0_30"] += float(c.balance)
-            elif days <= 60:
-                aging_buckets["31_60"] += 1
-                aging_amounts["31_60"] += float(c.balance)
-            elif days <= 90:
-                aging_buckets["61_90"] += 1
-                aging_amounts["61_90"] += float(c.balance)
-            else:
-                aging_buckets["90_plus"] += 1
-                aging_amounts["90_plus"] += float(c.balance)
+    for bucket, count, amount in aging_query:
+        if bucket in aging_buckets:
+            aging_buckets[bucket] = count
+            aging_amounts[bucket] = float(amount or 0)
 
     # Paginate results
     try:

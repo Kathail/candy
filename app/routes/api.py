@@ -19,7 +19,8 @@ def api_route_today():
     """JSON API endpoint for today's route - used by offline mode"""
     today = datetime.now(timezone.utc).date()
     stops = (
-        RouteStop.query.filter_by(route_date=today)
+        RouteStop.query.options(db.joinedload(RouteStop.customer))
+        .filter_by(route_date=today)
         .order_by(RouteStop.sequence)
         .all()
     )

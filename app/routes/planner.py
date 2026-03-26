@@ -257,9 +257,8 @@ def get_all_stops():
     future_date = today + timedelta(days=60)
 
     stops = (
-        RouteStop.query.filter(
-            RouteStop.route_date >= today, RouteStop.route_date <= future_date
-        )
+        RouteStop.query.options(db.joinedload(RouteStop.customer))
+        .filter(RouteStop.route_date >= today, RouteStop.route_date <= future_date)
         .order_by(RouteStop.sequence)
         .all()
     )

@@ -26,18 +26,17 @@ def customers():
         page = 1
     per_page = 50
 
-    # Get stats efficiently using SQL aggregation (active customers only)
-    total_customers = Customer.query.filter_by(status='active').count()
-    customers_with_balance = Customer.query.filter(Customer.balance > 0, Customer.status == 'active').count()
-    never_visited = Customer.query.filter(Customer.last_visit == None, Customer.status == 'active').count()
-
-    # Calculate needs_visit (30+ days)
+    # Single query for all stats
     thirty_days_ago = datetime.now(timezone.utc).date() - timedelta(days=30)
-    needs_visit = Customer.query.filter(
-        Customer.last_visit != None,
-        Customer.last_visit < thirty_days_ago,
-        Customer.status == 'active'
-    ).count()
+    stats = db.session.query(
+        db.func.count(Customer.id).filter(Customer.status == 'active'),
+        db.func.count(Customer.id).filter(Customer.balance > 0, Customer.status == 'active'),
+        db.func.count(Customer.id).filter(Customer.last_visit == None, Customer.status == 'active'),
+        db.func.count(Customer.id).filter(
+            Customer.last_visit != None, Customer.last_visit < thirty_days_ago, Customer.status == 'active'
+        ),
+    ).first()
+    total_customers, customers_with_balance, never_visited, needs_visit = stats
 
     # Build filtered query - apply status filter
     if status_filter == "all":
