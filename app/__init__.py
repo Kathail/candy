@@ -107,7 +107,7 @@ def create_app():
         from flask_talisman import Talisman
         Talisman(
             app,
-            force_https=True,
+            force_https=False,  # Render handles HTTPS at proxy level
             strict_transport_security=True,
             content_security_policy={
                 "default-src": "'self'",
@@ -126,7 +126,11 @@ def create_app():
 
     @login_manager.user_loader
     def load_user(user_id):
-        return models.User.query.get(int(user_id))
+        try:
+            return db.session.get(models.User, int(user_id))
+        except Exception:
+            db.session.rollback()
+            return None
 
     from app.routes import register_blueprints
     register_blueprints(app)
