@@ -21,18 +21,18 @@ content %}
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div x-show="open" @click.away="open = false"
+                <div x-show="open" @click.outside="open = false"
                      x-cloak
                      class="absolute right-0 mt-2 w-48 bg-panel border border-border rounded-lg shadow-lg z-10">
-                    <a href="{{ url_for('exports.export_customers') }}"
+                    <a href="{{ url_for('exports.export_customers') }}" @click="open = false"
                        class="block px-4 py-2 text-sm hover:bg-panel2 rounded-t-lg">
                         Customers CSV
                     </a>
-                    <a href="{{ url_for('exports.export_payments') }}"
+                    <a href="{{ url_for('exports.export_payments') }}" @click="open = false"
                        class="block px-4 py-2 text-sm hover:bg-panel2">
                         Payments CSV
                     </a>
-                    <a href="{{ url_for('exports.export_routes') }}"
+                    <a href="{{ url_for('exports.export_routes') }}" @click="open = false"
                        class="block px-4 py-2 text-sm hover:bg-panel2 rounded-b-lg">
                         Routes CSV
                     </a>
