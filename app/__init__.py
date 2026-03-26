@@ -144,8 +144,11 @@ def _create_default_app():
     Makes `gunicorn app:app` work alongside `gunicorn wsgi:app`.
     """
     _app = create_app()
-    from app.init_db import init_db
-    init_db(_app)
+    try:
+        from app.init_db import init_db
+        init_db(_app)
+    except Exception as e:
+        logger.error(f"init_db failed (app will still start): {e}")
     return _app
 
 
