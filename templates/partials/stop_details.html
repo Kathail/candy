@@ -224,23 +224,3 @@
         </a>
     </div>
 </div>
-
-<script>
-function toggleQuickPayment(stopId) {
-    const form = document.getElementById('quick-payment-' + stopId);
-    const btn = document.getElementById('payment-btn-' + stopId);
-    if (form.classList.contains('hidden')) {
-        form.classList.remove('hidden');
-        btn.classList.add('hidden');
-    } else {
-        form.classList.add('hidden');
-        btn.classList.remove('hidden');
-    }
-}
-
-function setQuickPayment(stopId, amount) {
-    const form = document.getElementById('quick-payment-' + stopId);
-    const input = form.querySelector('input[name="amount"]');
-    input.value = amount.toFixed(2);
-}
-</script>

@@ -143,12 +143,3 @@
         </button>
     </form>
 </div>
-
-<script>
-async function confirmDeleteLead(name) {
-    const confirmed = await Confirm.delete(name);
-    if (confirmed) {
-        document.getElementById('delete-lead-form').submit();
-    }
-}
-</script>

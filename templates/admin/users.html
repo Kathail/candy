@@ -147,15 +147,6 @@
     [x-cloak] { display: none !important; }
 </style>
 
-<script>
-async function confirmDeleteUser(form, username) {
-    const confirmed = await Confirm.delete(username);
-    if (confirmed) {
-        form.submit();
-    }
-}
-</script>
-
 <!-- Danger Zone -->
 <div class="mt-12 border-2 border-danger/30 rounded-xl p-6 bg-danger/5">
     <h2 class="text-xl font-bold text-danger mb-2">Danger Zone</h2>

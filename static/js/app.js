@@ -374,6 +374,51 @@ const Confirm = {
     }
 };
 
+// Global action handlers (called from onclick in HTMX-loaded partials)
+window.confirmDeleteCustomer = async function(name) {
+    const confirmed = await Confirm.delete(name);
+    if (confirmed) {
+        document.getElementById('delete-customer-form').submit();
+    }
+};
+
+window.confirmDeleteLead = async function(name) {
+    const confirmed = await Confirm.delete(name);
+    if (confirmed) {
+        document.getElementById('delete-lead-form').submit();
+    }
+};
+
+window.confirmDeleteUser = async function(form, username) {
+    const confirmed = await Confirm.delete(username);
+    if (confirmed) {
+        form.submit();
+    }
+};
+
+window.toggleAddTransaction = function() {
+    const form = document.getElementById('add-transaction-form');
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+};
+
+// Route stop payment helpers
+window.toggleQuickPayment = function(stopId) {
+    const form = document.getElementById('quick-payment-' + stopId);
+    const btn = document.getElementById('payment-btn-' + stopId);
+    if (form && btn) {
+        form.classList.toggle('hidden');
+        btn.classList.toggle('hidden');
+    }
+};
+
+window.setQuickPayment = function(stopId, amount) {
+    const form = document.getElementById('quick-payment-' + stopId);
+    if (form) {
+        const input = form.querySelector('input[name="amount"]');
+        if (input) input.value = amount.toFixed(2);
+    }
+};
+
 // Export for use in other scripts
 window.Modal = Modal;
 window.Toast = Toast;

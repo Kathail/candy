@@ -311,17 +311,3 @@
             </button>
         </form>
     </div>
-
-<script>
-async function confirmDeleteCustomer(name) {
-    const confirmed = await Confirm.delete(name);
-    if (confirmed) {
-        document.getElementById('delete-customer-form').submit();
-    }
-}
-
-function toggleAddTransaction() {
-    const form = document.getElementById('add-transaction-form');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-</script>
