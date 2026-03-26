@@ -12,13 +12,19 @@ bp = Blueprint("danger", __name__, url_prefix="/danger")
 danger_limit = limiter.shared_limit("5/minute", scope="danger")
 
 
+def _require_confirm():
+    if request.form.get("confirm") != "CONFIRM":
+        flash("You must type CONFIRM to proceed.", "error")
+        return True
+    return False
+
+
 @bp.route("/clear-payments", methods=["POST"])
 @danger_limit
 @login_required
 @admin_required
 def clear_payments():
-    if request.form.get("confirm") != "CONFIRM":
-        flash("You must type CONFIRM to proceed.", "error")
+    if _require_confirm():
         return redirect(url_for("admin.admin_users"))
 
     with db.session.no_autoflush:
@@ -37,8 +43,7 @@ def clear_payments():
 @login_required
 @admin_required
 def clear_routes():
-    if request.form.get("confirm") != "CONFIRM":
-        flash("You must type CONFIRM to proceed.", "error")
+    if _require_confirm():
         return redirect(url_for("admin.admin_users"))
 
     route_count = RouteStop.query.count()
@@ -55,24 +60,20 @@ def clear_routes():
 @login_required
 @admin_required
 def clear_customers():
-    if request.form.get("confirm") != "CONFIRM":
-        flash("You must type CONFIRM to proceed.", "error")
+    if _require_confirm():
         return redirect(url_for("admin.admin_users"))
 
-    activity_count = ActivityLog.query.count()
-    route_count = RouteStop.query.count()
-    payment_count = Payment.query.count()
-    customer_count = Customer.query.count()
-
-    ActivityLog.query.delete()
-    RouteStop.query.delete()
-    Payment.query.delete()
-    Customer.query.delete()
+    counts = {
+        "activities": ActivityLog.query.delete(),
+        "routes": RouteStop.query.delete(),
+        "payments": Payment.query.delete(),
+        "customers": Customer.query.delete(),
+    }
     db.session.commit()
 
-    total = activity_count + route_count + payment_count + customer_count
-    logger.warning(f"DANGER: {current_user.username} cleared all customers ({customer_count} customers, {payment_count} payments, {route_count} routes, {activity_count} activities)")
-    flash(f"Cleared {customer_count} customers, {payment_count} payments, {route_count} routes, {activity_count} activity logs ({total} total records).", "success")
+    logger.warning(f"DANGER: {current_user.username} cleared all customers {counts}")
+    flash(f"Cleared {counts['customers']} customers, {counts['payments']} payments, "
+          f"{counts['routes']} routes, {counts['activities']} activity logs.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -81,22 +82,18 @@ def clear_customers():
 @login_required
 @admin_required
 def clear_everything():
-    if request.form.get("confirm") != "CONFIRM":
-        flash("You must type CONFIRM to proceed.", "error")
+    if _require_confirm():
         return redirect(url_for("admin.admin_users"))
 
-    activity_count = ActivityLog.query.count()
-    route_count = RouteStop.query.count()
-    payment_count = Payment.query.count()
-    customer_count = Customer.query.count()
-
-    ActivityLog.query.delete()
-    RouteStop.query.delete()
-    Payment.query.delete()
-    Customer.query.delete()
+    counts = {
+        "activities": ActivityLog.query.delete(),
+        "routes": RouteStop.query.delete(),
+        "payments": Payment.query.delete(),
+        "customers": Customer.query.delete(),
+    }
     db.session.commit()
+    total = sum(counts.values())
 
-    total = activity_count + route_count + payment_count + customer_count
-    logger.warning(f"DANGER: {current_user.username} cleared EVERYTHING ({total} total records, users preserved)")
-    flash(f"Full reset: cleared {customer_count} customers, {payment_count} payments, {route_count} routes, {activity_count} activity logs. User accounts preserved.", "success")
+    logger.warning(f"DANGER: {current_user.username} cleared EVERYTHING ({total} records, users preserved)")
+    flash(f"Full reset: {total} records cleared. User accounts preserved.", "success")
     return redirect(url_for("admin.admin_users"))

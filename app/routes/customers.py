@@ -59,11 +59,11 @@ def customers():
     if filter_type == "never":
         customers_query = customers_query.filter(Customer.last_visit == None)
     elif filter_type == "30":
-        thirty_days_ago = datetime.now(timezone.utc).date() - timedelta(days=30)
         customers_query = customers_query.filter(Customer.last_visit < thirty_days_ago)
     elif filter_type == "60":
-        sixty_days_ago = datetime.now(timezone.utc).date() - timedelta(days=60)
-        customers_query = customers_query.filter(Customer.last_visit < sixty_days_ago)
+        customers_query = customers_query.filter(
+            Customer.last_visit < datetime.now(timezone.utc).date() - timedelta(days=60)
+        )
 
     # Apply sorting
     if sort_by == "name":
