@@ -1,0 +1,327 @@
+<div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-semibold">Edit Customer</h3>
+    <button onclick="closeEditModal()" class="text-muted hover:text-white">
+        <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+            />
+        </svg>
+    </button>
+</div>
+
+<form
+    action="/customers/{{ customer.id }}/update"
+    method="POST"
+    class="space-y-4"
+>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <div>
+        <label class="block text-xs text-muted mb-1">Name *</label>
+        <input
+            type="text"
+            name="name"
+            required
+            value="{{ customer.name }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Customer name"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Phone</label>
+        <input
+            type="tel"
+            name="phone"
+            value="{{ customer.phone or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="(555) 123-4567"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Address</label>
+        <input
+            type="text"
+            name="address"
+            value="{{ customer.address or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="123 Main St, City, State"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">City</label>
+        <input
+            type="text"
+            name="city"
+            value="{{ customer.city or '' }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Springfield"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Balance</label>
+        <input
+            type="number"
+            name="balance"
+            step="0.01"
+            value="{{ customer.balance }}"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="0.00"
+        />
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Notes</label>
+        <textarea
+            name="notes"
+            rows="4"
+            class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+            placeholder="Any special notes..."
+        >
+{{ customer.notes or '' }}</textarea
+        >
+    </div>
+
+    <!-- Tax Exempt Toggle -->
+    <div class="flex items-center justify-between py-3 border-t border-border">
+        <div>
+            <div class="text-sm font-semibold">Tax Exempt</div>
+            <div class="text-xs text-muted">Sales to this customer are tax-exempt</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="tax_exempt" class="sr-only peer" {% if customer.tax_exempt %}checked{% endif %}>
+            <div class="w-11 h-6 bg-panel2 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+        </label>
+    </div>
+
+    <!-- Customer Stats -->
+    <div class="py-3 border-t border-border">
+        <div class="grid grid-cols-2 gap-4 text-xs">
+            <div>
+                <div class="text-muted">Last Visit</div>
+                <div class="font-semibold mt-1">
+                    {% if customer.last_visit %} {{
+                    customer.last_visit.strftime('%b %d, %Y') }} {% else %}
+                    Never {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Total Stops</div>
+                <div class="font-semibold mt-1">
+                    {{ customer.stops|length }}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Total Paid</div>
+                <div class="font-semibold mt-1 text-good">
+                    ${{ "%.2f"|format(customer.payments|sum(attribute='amount')
+                    if customer.payments else 0) }}
+                </div>
+            </div>
+            <div>
+                <div class="text-muted">Created</div>
+                <div class="font-semibold mt-1">
+                    {{ customer.created_at.strftime('%b %d, %Y') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+        <button
+            type="submit"
+            class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Save Changes
+        </button>
+        <button
+            type="button"
+            onclick="closeEditModal()"
+            class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition"
+        >
+            Cancel
+        </button>
+    </div>
+
+</form>
+
+    <!-- Transaction History Section -->
+    <div class="py-3 border-t border-border">
+        <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold">Transaction History</div>
+            <button
+                type="button"
+                onclick="toggleAddTransaction()"
+                class="text-xs bg-good hover:bg-green-600 text-white px-2 py-1 rounded transition"
+            >
+                + Add Payment
+            </button>
+        </div>
+
+        <!-- Add Transaction Form (hidden by default) -->
+        <div id="add-transaction-form" style="display: none;" class="mb-3 p-3 bg-panel2 rounded-lg">
+            <form action="/customers/{{ customer.id }}/add-payment" method="POST" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Amount *</label>
+                        <div class="relative">
+                            <span class="absolute left-2 top-1/2 -translate-y-1/2 text-muted text-sm">$</span>
+                            <input
+                                type="number"
+                                name="amount"
+                                step="0.01"
+                                min="0.01"
+                                required
+                                class="w-full bg-panel border border-border rounded-md pl-6 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+                                placeholder="0.00"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Date</label>
+                        <input
+                            type="date"
+                            name="payment_date"
+                            value="{{ now.strftime('%Y-%m-%d') if now else '' }}"
+                            class="w-full bg-panel border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-muted mb-1">Notes</label>
+                    <input
+                        type="text"
+                        name="notes"
+                        class="w-full bg-panel border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand"
+                        placeholder="Cash, check, etc..."
+                    />
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        type="submit"
+                        class="flex-1 bg-good hover:bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-md transition"
+                    >
+                        Record Payment
+                    </button>
+                    <button
+                        type="button"
+                        onclick="toggleAddTransaction()"
+                        class="flex-1 bg-panel hover:bg-border text-white text-xs font-semibold px-3 py-1.5 rounded-md transition"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Transaction List -->
+        <div class="max-h-48 overflow-y-auto space-y-2">
+            {% set sorted_payments = customer.payments|sort(attribute='payment_date', reverse=true) %}
+            {% if sorted_payments %}
+                {% for payment in sorted_payments[:10] %}
+                <div class="flex items-center justify-between p-2 bg-panel2 rounded-lg text-xs">
+                    <div class="flex items-center gap-2">
+                        {% if customer.tax_exempt %}
+                        <span class="bg-warn/20 text-warn px-1 py-0.5 rounded text-[10px] font-semibold shrink-0">TAX EX</span>
+                        {% endif %}
+                        <div>
+                            <div class="font-semibold text-good">${{ "%.2f"|format(payment.amount) }}</div>
+                            <div class="text-muted">{{ payment.payment_date.strftime('%b %d, %Y') }}</div>
+                            {% if payment.notes %}
+                            <div class="text-muted truncate max-w-[150px]">{{ payment.notes }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <form action="/customers/{{ customer.id }}/delete-payment/{{ payment.id }}" method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button
+                            type="submit"
+                            onclick="return confirm('Delete this payment?')"
+                            class="text-danger hover:text-red-400 p-1"
+                            title="Delete payment"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+                {% if sorted_payments|length > 10 %}
+                <div class="text-xs text-muted text-center py-2">
+                    + {{ sorted_payments|length - 10 }} more transactions
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="text-xs text-muted text-center py-4">
+                    No transactions yet
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Archive/Reactivate -->
+    {% if customer.status == 'active' %}
+    <div class="pt-3 border-t border-warn/20">
+        <form action="/customers/{{ customer.id }}/archive" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="submit"
+                class="w-full bg-warn/10 hover:bg-warn/20 text-warn text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Archive Customer
+            </button>
+        </form>
+    </div>
+    {% elif customer.status == 'inactive' %}
+    <div class="pt-3 border-t border-good/20">
+        <form action="/customers/{{ customer.id }}/reactivate" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="submit"
+                class="w-full bg-good/10 hover:bg-good/20 text-good text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Reactivate Customer
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Danger Zone - separate form for delete -->
+    <div class="pt-3 border-t border-danger/20">
+        <form id="delete-customer-form" action="/customers/{{ customer.id }}/delete" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button
+                type="button"
+                onclick="confirmDeleteCustomer('{{ customer.name }}')"
+                class="w-full bg-danger/10 hover:bg-danger/20 text-danger text-xs font-semibold px-4 py-2 rounded-md transition"
+            >
+                Delete Customer
+            </button>
+        </form>
+    </div>
+
+<script>
+async function confirmDeleteCustomer(name) {
+    const confirmed = await Confirm.delete(name);
+    if (confirmed) {
+        document.getElementById('delete-customer-form').submit();
+    }
+}
+
+function toggleAddTransaction() {
+    const form = document.getElementById('add-transaction-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+</script>

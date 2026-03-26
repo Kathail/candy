@@ -31,7 +31,13 @@ login_manager.login_message_category = "info"
 
 
 def create_app():
-    app = Flask(__name__, template_folder="../templates", static_folder="../static")
+    import pathlib
+    base_dir = pathlib.Path(__file__).resolve().parent.parent
+    app = Flask(
+        __name__,
+        template_folder=str(base_dir / "templates"),
+        static_folder=str(base_dir / "static"),
+    )
 
     is_dev = os.environ.get("FLASK_ENV") == "development"
 
