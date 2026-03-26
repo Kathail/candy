@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <title>Login - Candy Route Planner</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <script src="{{ url_for('static', filename='vendor/tailwind.js') }}"></script>
         <script>
             tailwind.config = {
@@ -53,6 +53,7 @@
                                 name="username"
                                 required
                                 autofocus
+                                autocomplete="username"
                                 class="w-full bg-panel2 border border-border rounded-lg px-4 py-3 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
                                 placeholder="Enter your username"
                             />
@@ -65,6 +66,7 @@
                                 id="password"
                                 name="password"
                                 required
+                                autocomplete="current-password"
                                 class="w-full bg-panel2 border border-border rounded-lg px-4 py-3 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
                                 placeholder="Enter your password"
                             />
