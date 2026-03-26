@@ -9,40 +9,71 @@ from app.models import (ActivityLog, Announcement, AuditLog, Customer, Payment,
 logger = logging.getLogger(__name__)
 
 
-def _add_column(table, column_def, label=None):
-    """Try to add a column; silently skip if it already exists."""
+def _column_exists_sqlite(table_name, column_name):
+    """Check if a column exists using PRAGMA — works on SQLite, libsql, and Turso."""
     from sqlalchemy import text
+    try:
+        # Strip quotes from table name for PRAGMA
+        clean_name = table_name.strip('"')
+        result = db.session.execute(text(f"PRAGMA table_info({clean_name})"))
+        columns = {row[1] for row in result}
+        return column_name in columns
+    except Exception as e:
+        logger.warning(f"PRAGMA table_info failed for {table_name}: {e}")
+        return True  # Assume exists to avoid breaking ALTER TABLE
+
+
+def _column_exists_postgres(table_name, column_name):
+    """Check if a column exists using information_schema — PostgreSQL only."""
+    from sqlalchemy import text
+    try:
+        clean_name = table_name.strip('"')
+        result = db.session.execute(text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :table AND column_name = :col"
+        ), {"table": clean_name, "col": column_name})
+        return result.fetchone() is not None
+    except Exception:
+        return True  # Assume exists
+
+
+def _add_column(table, column_name, column_def, is_postgres=False):
+    """Add a column if it doesn't exist. Check first, then ALTER TABLE."""
+    from sqlalchemy import text
+
+    # Check if column already exists
+    if is_postgres:
+        exists = _column_exists_postgres(table, column_name)
+    else:
+        exists = _column_exists_sqlite(table, column_name)
+
+    if exists:
+        return
+
     sql = f"ALTER TABLE {table} ADD COLUMN {column_def}"
     try:
         db.session.execute(text(sql))
         db.session.commit()
-        logger.info(f"Migration OK: {label or column_def}")
+        logger.info(f"Migration OK: {table}.{column_name}")
     except Exception as e:
         db.session.rollback()
-        err = str(e).lower()
-        # These errors all mean "column already exists" across SQLite/Postgres/Turso
-        if any(phrase in err for phrase in ["duplicate", "already exists", "duplicate column"]):
-            logger.debug(f"Column already exists: {label}")
-        else:
-            # Log at WARNING so we can see Turso-specific errors in Render logs
-            logger.warning(f"Migration failed for {label}: {e} — SQL was: {sql}")
+        logger.warning(f"Migration FAILED: {table}.{column_name} — {e} — SQL: {sql}")
 
 
 def init_db(app):
     """Initialize database tables and fix any data issues."""
     with app.app_context():
-        # Create all tables (new tables like AuditLog, Announcement, Setting,
-        # RouteTemplate, RouteTemplateStop are created here automatically)
         db.create_all()
+        logger.info("db.create_all() completed")
 
-        is_postgres = "postgresql" in app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        is_pg = "postgresql" in app.config.get("SQLALCHEMY_DATABASE_URI", "")
 
         # --- User table migrations ---
-        # Always quote "user" — it's a reserved word in some SQL dialects including Turso
-        qt = '"user"'
-        _add_column(qt, "role VARCHAR(20) DEFAULT 'sales'", "user.role")
-        _add_column(qt, "is_active_user BOOLEAN DEFAULT " + ("TRUE" if is_postgres else "1"), "user.is_active_user")
-        _add_column(qt, "last_login " + ("TIMESTAMP" if is_postgres else "DATETIME"), "user.last_login")
+        _add_column('"user"', "role", "role VARCHAR(20) DEFAULT 'sales'", is_pg)
+        _add_column('"user"', "is_active_user",
+                    "is_active_user BOOLEAN DEFAULT " + ("TRUE" if is_pg else "1"), is_pg)
+        _add_column('"user"', "last_login",
+                    "last_login " + ("TIMESTAMP" if is_pg else "DATETIME"), is_pg)
 
         # Set admin role on existing admin user if role was just added
         from sqlalchemy import text
@@ -53,14 +84,15 @@ def init_db(app):
             db.session.rollback()
 
         # --- Payment table migrations ---
-        _add_column("payment", "receipt_number VARCHAR(20)", "payment.receipt_number")
-        _add_column("payment", "previous_balance NUMERIC(10,2)", "payment.previous_balance")
+        _add_column("payment", "receipt_number", "receipt_number VARCHAR(20)", is_pg)
+        _add_column("payment", "previous_balance", "previous_balance NUMERIC(10,2)", is_pg)
 
         # --- Customer table migrations ---
-        _add_column("customer", "status VARCHAR(20) DEFAULT 'active'", "customer.status")
-        _add_column("customer", "tax_exempt BOOLEAN DEFAULT " + ("FALSE" if is_postgres else "0"), "customer.tax_exempt")
-        _add_column("customer", "lead_source VARCHAR(50)", "customer.lead_source")
-        _add_column("customer", "assigned_to INTEGER", "customer.assigned_to")
+        _add_column("customer", "status", "status VARCHAR(20) DEFAULT 'active'", is_pg)
+        _add_column("customer", "tax_exempt",
+                    "tax_exempt BOOLEAN DEFAULT " + ("FALSE" if is_pg else "0"), is_pg)
+        _add_column("customer", "lead_source", "lead_source VARCHAR(50)", is_pg)
+        _add_column("customer", "assigned_to", "assigned_to INTEGER", is_pg)
 
         # Set status on existing customers
         try:
@@ -70,7 +102,7 @@ def init_db(app):
             db.session.rollback()
 
         # --- PostgreSQL-only: fix money column types ---
-        if is_postgres:
+        if is_pg:
             try:
                 db.session.execute(text("ALTER TABLE customer ALTER COLUMN balance TYPE NUMERIC(10,2)"))
                 db.session.execute(text("ALTER TABLE payment ALTER COLUMN amount TYPE NUMERIC(10,2)"))
@@ -80,7 +112,13 @@ def init_db(app):
                 db.session.rollback()
 
         # --- Create default admin user if no users exist ---
-        if User.query.count() == 0:
+        try:
+            user_count = User.query.count()
+        except Exception as e:
+            logger.warning(f"Could not query users: {e}")
+            user_count = 1  # Assume users exist to avoid duplicate creation
+
+        if user_count == 0:
             import secrets
             is_dev = os.environ.get("FLASK_ENV") == "development"
             admin_pw = os.environ.get("ADMIN_PASSWORD")
@@ -122,3 +160,5 @@ def init_db(app):
                 logger.info(f"Fixed {len(customers_with_none_balance)} customers with None balance")
         except Exception:
             db.session.rollback()
+
+        logger.info("init_db completed successfully")
