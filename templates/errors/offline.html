@@ -1,35 +1,8 @@
-<!doctype html>
-<html lang="en" class="h-full">
-<head>
-    <meta charset="utf-8" />
-    <title>Offline - Candy Route Planner</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="{{ url_for('static', filename='vendor/tailwind.js') }}"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        bg: "#0b1220",
-                        panel: "#1e293b",
-                        warn: "#facc15",
-                        muted: "#94a3b8",
-                    },
-                },
-            },
-        };
-    </script>
-</head>
-<body class="h-full bg-bg text-slate-200 antialiased">
-    <div class="min-h-screen flex items-center justify-center px-4">
-        <div class="text-center">
-            <div class="text-6xl mb-4">&#128268;</div>
-            <h1 class="text-2xl font-semibold mb-2">You're Offline</h1>
-            <p class="text-muted mb-8">Check your internet connection and try again.</p>
-            <button onclick="location.reload()" class="inline-block bg-warn hover:bg-yellow-500 text-black font-semibold py-3 px-6 rounded-lg transition">
-                Retry
-            </button>
-        </div>
-    </div>
-</body>
-</html>
+{% extends "errors/base_error.html" %}
+{% block title %}Offline{% endblock %}
+{% block content %}
+<div class="text-6xl mb-4">&#128268;</div>
+<h1 class="text-2xl font-semibold mb-2">You're Offline</h1>
+<p class="text-muted mb-8">Check your internet connection and try again.</p>
+<button onclick="location.reload()" class="inline-block bg-warn hover:bg-yellow-500 text-black font-semibold py-3 px-6 rounded-lg transition">Retry</button>
+{% endblock %}
