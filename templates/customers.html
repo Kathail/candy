@@ -68,7 +68,8 @@
             hx-target="#table-body"
             hx-include="[name='query'], [name='sort'], [name='status']"
             hx-swap="innerHTML">
-            <option value="">All Visits</option>
+            <option value="">All Customers</option>
+            <option value="tax_exempt" {% if request.args.get('filter') == 'tax_exempt' %}selected{% endif %}>Tax Exempt</option>
             <option value="never" {% if request.args.get('filter') == 'never' %}selected{% endif %}>Never Visited</option>
             <option value="30" {% if request.args.get('filter') == '30' %}selected{% endif %}>30+ Days</option>
             <option value="60" {% if request.args.get('filter') == '60' %}selected{% endif %}>60+ Days</option>

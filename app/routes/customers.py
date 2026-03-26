@@ -57,6 +57,8 @@ def customers():
 
     if filter_type == "never":
         customers_query = customers_query.filter(Customer.last_visit == None)
+    elif filter_type == "tax_exempt":
+        customers_query = customers_query.filter(Customer.tax_exempt == True)
     elif filter_type == "30":
         customers_query = customers_query.filter(Customer.last_visit < thirty_days_ago)
     elif filter_type == "60":

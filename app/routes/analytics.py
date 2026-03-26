@@ -170,6 +170,13 @@ def analytics():
         max(day_counts.items(), key=lambda x: x[1])[0] if day_counts else "N/A"
     )
 
+    # Tax exempt analytics
+    tax_exempt_count = Customer.query.filter_by(tax_exempt=True, status='active').count()
+    tax_exempt_ids = [c.id for c in Customer.query.filter_by(tax_exempt=True, status='active').with_entities(Customer.id).all()]
+    tax_exempt_payments = [p for p in all_payments if p.customer_id in set(tax_exempt_ids)]
+    tax_exempt_collected = sum(float(p.amount) for p in tax_exempt_payments)
+    tax_exempt_payment_count = len(tax_exempt_payments)
+
     return render_template(
         "analytics.html",
         # Key metrics
@@ -202,6 +209,10 @@ def analytics():
         avg_stops_per_route=f"{avg_stops_per_route:.1f}",
         completion_rate=completion_rate,
         busiest_day=busiest_day,
+        # Tax exempt
+        tax_exempt_count=tax_exempt_count,
+        tax_exempt_collected=f"{tax_exempt_collected:.2f}",
+        tax_exempt_payment_count=tax_exempt_payment_count,
         # Date range
         current_range=date_range,
         range_label=range_label,

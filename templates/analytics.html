@@ -306,6 +306,36 @@ content %}
     </div>
 </div>
 
+<!-- Tax Exempt Section -->
+{% if tax_exempt_count > 0 %}
+<div class="bg-panel rounded-xl shadow-soft p-4 md:p-6 mt-6 border-l-4 border-warn">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="bg-warn/20 text-warn px-2 py-0.5 rounded text-xs font-semibold">TAX EXEMPT</span>
+        <h2 class="text-lg font-semibold">Tax Exempt Sales</h2>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+        <div>
+            <div class="text-xs text-muted">Exempt Customers</div>
+            <div class="text-xl font-semibold mt-1">{{ tax_exempt_count }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-muted">Exempt Sales</div>
+            <div class="text-xl font-semibold text-warn mt-1">${{ tax_exempt_collected }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-muted">Payments</div>
+            <div class="text-xl font-semibold mt-1">{{ tax_exempt_payment_count }}</div>
+        </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-t border-border flex items-center justify-between">
+        <span class="text-xs text-muted">Full tax exempt reports with CSV/PDF/Excel export</span>
+        <a href="/reports" class="text-sm text-brand font-semibold hover:underline">View Reports</a>
+    </div>
+</div>
+{% endif %}
+
 <!-- Chart.js -->
 <script src="{{ url_for('static', filename='vendor/chart.min.js') }}"></script>
 <script>
