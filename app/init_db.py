@@ -12,17 +12,20 @@ logger = logging.getLogger(__name__)
 def _add_column(table, column_def, label=None):
     """Try to add a column; silently skip if it already exists."""
     from sqlalchemy import text
+    sql = f"ALTER TABLE {table} ADD COLUMN {column_def}"
     try:
-        db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column_def}"))
+        db.session.execute(text(sql))
         db.session.commit()
-        logger.info(f"Added column: {label or column_def}")
+        logger.info(f"Migration OK: {label or column_def}")
     except Exception as e:
         db.session.rollback()
         err = str(e).lower()
-        if "duplicate" in err or "already exists" in err or "duplicate column" in err:
-            pass  # Column already exists — expected
+        # These errors all mean "column already exists" across SQLite/Postgres/Turso
+        if any(phrase in err for phrase in ["duplicate", "already exists", "duplicate column"]):
+            logger.debug(f"Column already exists: {label}")
         else:
-            logger.debug(f"Column may already exist ({label}): {e}")
+            # Log at WARNING so we can see Turso-specific errors in Render logs
+            logger.warning(f"Migration failed for {label}: {e} — SQL was: {sql}")
 
 
 def init_db(app):
@@ -35,7 +38,8 @@ def init_db(app):
         is_postgres = "postgresql" in app.config.get("SQLALCHEMY_DATABASE_URI", "")
 
         # --- User table migrations ---
-        qt = '"user"' if is_postgres else "user"
+        # Always quote "user" — it's a reserved word in some SQL dialects including Turso
+        qt = '"user"'
         _add_column(qt, "role VARCHAR(20) DEFAULT 'sales'", "user.role")
         _add_column(qt, "is_active_user BOOLEAN DEFAULT " + ("TRUE" if is_postgres else "1"), "user.is_active_user")
         _add_column(qt, "last_login " + ("TIMESTAMP" if is_postgres else "DATETIME"), "user.last_login")
@@ -43,7 +47,7 @@ def init_db(app):
         # Set admin role on existing admin user if role was just added
         from sqlalchemy import text
         try:
-            db.session.execute(text(f'UPDATE {qt} SET role=\'admin\' WHERE username=\'admin\' AND role IS NULL'))
+            db.session.execute(text('UPDATE "user" SET role=\'admin\' WHERE username=\'admin\' AND role IS NULL'))
             db.session.commit()
         except Exception:
             db.session.rollback()
