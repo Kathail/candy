@@ -48,9 +48,9 @@
                 <a
                     href="https://maps.google.com/?q={{ stop.customer.address|urlencode }}"
                     target="_blank"
-                    class="text-brand hover:underline text-xs"
+                    class="text-brand text-sm font-semibold px-3 py-1.5 bg-brand/10 rounded-md"
                 >
-                    Navigate →
+                    Navigate
                 </a>
             </div>
         </div>
@@ -61,9 +61,9 @@
                 <span>{{ stop.customer.phone }}</span>
                 <a
                     href="tel:{{ stop.customer.phone }}"
-                    class="text-brand hover:underline text-xs"
+                    class="text-brand text-sm font-semibold px-3 py-1.5 bg-brand/10 rounded-md"
                 >
-                    Call →
+                    Call
                 </a>
             </div>
         </div>
@@ -201,9 +201,9 @@
                     </button>
                 </div>
                 <div class="flex gap-2">
-                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance }})" class="text-xs bg-brand/20 text-brand px-2 py-1 rounded hover:bg-brand/30">Full</button>
-                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance / 2 }})" class="text-xs bg-panel text-muted px-2 py-1 rounded hover:bg-border">Half</button>
-                    <button type="button" onclick="toggleQuickPayment({{ stop.id }})" class="text-xs text-muted hover:text-white ml-auto">Cancel</button>
+                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance }})" class="flex-1 text-sm bg-brand/20 text-brand px-3 py-2 rounded-md font-semibold">Full (${{ "%.2f"|format(stop.customer.balance) }})</button>
+                    <button type="button" onclick="setQuickPayment({{ stop.id }}, {{ stop.customer.balance / 2 }})" class="flex-1 text-sm bg-panel text-muted px-3 py-2 rounded-md font-semibold">Half (${{ "%.2f"|format(stop.customer.balance / 2) }})</button>
+                    <button type="button" onclick="toggleQuickPayment({{ stop.id }})" class="text-sm text-muted px-3 py-2">Cancel</button>
                 </div>
             </form>
         </div>

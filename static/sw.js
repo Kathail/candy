@@ -1,160 +1,118 @@
 // Service Worker for Candy Route Planner PWA
-const CACHE_NAME = 'candy-route-v1';
+const CACHE_NAME = 'candy-route-v2';
 const OFFLINE_URL = '/offline';
 
-// Assets to cache on install
+// Assets to cache on install (all local, no CDN)
 const PRECACHE_ASSETS = [
-    '/',
-    '/route',
-    '/customers',
-    '/balances',
-    '/planner',
-    '/analytics',
+    '/offline',
     '/static/css/app.css',
+    '/static/js/app.js',
     '/static/js/offline.js',
+    '/static/vendor/tailwind.js',
+    '/static/vendor/htmx.min.js',
+    '/static/vendor/alpine.min.js',
     '/static/manifest.json',
-    'https://cdn.tailwindcss.com',
-    'https://unpkg.com/htmx.org@1.9.10',
-    'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+    '/static/icons/icon-192.png',
 ];
 
-// Install event - cache assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('Pre-caching offline assets');
-                return cache.addAll(PRECACHE_ASSETS);
-            })
+            .then((cache) => cache.addAll(PRECACHE_ASSETS))
             .then(() => self.skipWaiting())
     );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then((cacheNames) => {
-                return Promise.all(
-                    cacheNames
-                        .filter((name) => name !== CACHE_NAME)
-                        .map((name) => caches.delete(name))
-                );
-            })
+            .then((names) => Promise.all(
+                names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))
+            ))
             .then(() => self.clients.claim())
     );
 });
 
-// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-    // Skip non-GET requests
-    if (event.request.method !== 'GET') {
-        return;
-    }
+    if (event.request.method !== 'GET') return;
 
-    // Skip cross-origin requests except for CDN assets
     const url = new URL(event.request.url);
-    const isCDN = url.hostname.includes('cdn.') || url.hostname.includes('unpkg.com');
-    const isSameOrigin = url.origin === self.location.origin;
+    if (url.origin !== self.location.origin) return;
 
-    if (!isSameOrigin && !isCDN) {
-        return;
-    }
-
-    // Handle API requests differently (network first)
-    if (url.pathname.startsWith('/api/') || url.pathname.includes('/json')) {
+    // API: network first, fall back to cache
+    if (url.pathname.startsWith('/api/')) {
         event.respondWith(networkFirst(event.request));
         return;
     }
 
-    // For HTML pages and static assets, use cache first strategy
-    event.respondWith(cacheFirst(event.request));
+    // Static assets: cache first
+    if (url.pathname.startsWith('/static/')) {
+        event.respondWith(cacheFirst(event.request));
+        return;
+    }
+
+    // HTML pages: network first, fall back to offline page
+    event.respondWith(
+        fetch(event.request)
+            .then((response) => {
+                if (response.ok) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+                }
+                return response;
+            })
+            .catch(() => caches.match(event.request)
+                .then((cached) => cached || caches.match(OFFLINE_URL))
+            )
+    );
 });
 
-// Cache first strategy
 async function cacheFirst(request) {
-    const cache = await caches.open(CACHE_NAME);
-    const cachedResponse = await cache.match(request);
-
-    if (cachedResponse) {
-        // Update cache in background
-        fetchAndCache(request, cache);
-        return cachedResponse;
-    }
-
+    const cached = await caches.match(request);
+    if (cached) return cached;
     try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
+        const response = await fetch(request);
+        if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(request, response.clone());
         }
-        return networkResponse;
-    } catch (error) {
-        // Return cached offline page if available
-        const offlineResponse = await cache.match('/');
-        if (offlineResponse) {
-            return offlineResponse;
-        }
-        throw error;
+        return response;
+    } catch (e) {
+        return new Response('', { status: 503 });
     }
 }
 
-// Network first strategy (for API calls)
 async function networkFirst(request) {
-    const cache = await caches.open(CACHE_NAME);
-
     try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
+        const response = await fetch(request);
+        if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(request, response.clone());
         }
-        return networkResponse;
-    } catch (error) {
-        const cachedResponse = await cache.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        throw error;
-    }
-}
-
-// Background fetch and cache update
-async function fetchAndCache(request, cache) {
-    try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
-        }
-    } catch (error) {
-        // Silently fail for background updates
-    }
-}
-
-// Listen for messages from the main thread
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
-
-    if (event.data && event.data.type === 'CACHE_ROUTE') {
-        // Cache today's route data
-        caches.open(CACHE_NAME).then((cache) => {
-            cache.add('/api/route/today');
+        return response;
+    } catch (e) {
+        const cached = await caches.match(request);
+        return cached || new Response('{"error":"offline"}', {
+            status: 503, headers: { 'Content-Type': 'application/json' }
         });
     }
-});
+}
 
-// Background sync for offline actions
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-actions') {
-        event.waitUntil(syncOfflineActions());
+// Listen for skip waiting and cache route messages
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+    if (event.data?.type === 'CACHE_ROUTE') {
+        caches.open(CACHE_NAME).then((c) => c.add('/api/route/today'));
     }
 });
 
-async function syncOfflineActions() {
-    // This will be handled by offline.js IndexedDB queue
-    const clients = await self.clients.matchAll();
-    clients.forEach((client) => {
-        client.postMessage({ type: 'SYNC_REQUESTED' });
-    });
-}
+// Background sync
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'sync-actions') {
+        event.waitUntil(
+            self.clients.matchAll().then((clients) =>
+                clients.forEach((c) => c.postMessage({ type: 'SYNC_REQUESTED' }))
+            )
+        );
+    }
+});
