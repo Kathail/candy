@@ -11,7 +11,7 @@
         <meta name="apple-mobile-web-app-title" content="Candy Route" />
         <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
         <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ url_for('static', filename='vendor/tailwind.js') }}"></script>
         <script>
             tailwind.config = {
                 theme: {
@@ -39,12 +39,9 @@
             href="{{ url_for('static', filename='css/app.css') }}"
         />
         <!-- HTMX for dynamic updates -->
-        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
         <!-- Alpine.js for interactivity -->
-        <script
-            defer
-            src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-        ></script>
+        <script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
     </head>
     <body class="h-full bg-bg text-slate-200 antialiased">
         <div class="min-h-screen flex flex-col lg:flex-row">
