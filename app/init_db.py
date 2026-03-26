@@ -119,20 +119,34 @@ def init_db(app):
         # Create default admin user if no users exist
         if User.query.count() == 0:
             import secrets
-            default_password = os.environ.get("ADMIN_PASSWORD", secrets.token_urlsafe(16))
+            is_dev = os.environ.get("FLASK_ENV") == "development"
+            admin_pw = os.environ.get("ADMIN_PASSWORD")
+
+            if not admin_pw:
+                if is_dev:
+                    admin_pw = secrets.token_urlsafe(16)
+                    # Print once to console — never to persistent logs
+                    print(f"\n{'='*60}")
+                    print(f"  DEV ONLY — initial admin password: {admin_pw}")
+                    print(f"  username: admin")
+                    print(f"  Change this immediately via /admin/users")
+                    print(f"{'='*60}\n")
+                else:
+                    logger.critical(
+                        "ADMIN_PASSWORD env var is required on first run in production. "
+                        "Set it and restart."
+                    )
+                    return
+
             admin = User(
                 username="admin",
                 email="admin@candyroute.local",
                 role="admin"
             )
-            admin.set_password(default_password)
+            admin.set_password(admin_pw)
             db.session.add(admin)
             db.session.commit()
-            if os.environ.get("FLASK_ENV") == "development":
-                logger.warning(f"Created default admin user (username: admin, password: {default_password})")
-            else:
-                logger.warning("Created default admin user (username: admin). Password was set from ADMIN_PASSWORD env var or generated randomly — check startup logs.")
-            logger.warning("Change the default admin password immediately!")
+            logger.info("Created default admin user (username: admin). Change password immediately.")
 
         # Fix any None balances
         try:

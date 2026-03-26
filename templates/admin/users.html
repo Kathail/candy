@@ -170,9 +170,9 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
                         <label class="block text-xs text-muted mb-1">New Password *</label>
-                        <input type="password" name="new_password" required minlength="6"
+                        <input type="password" name="new_password" required minlength="12"
                                class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                               placeholder="Min 6 characters">
+                               placeholder="Min 12 characters">
                     </div>
                     <div class="flex gap-2 pt-2">
                         <button type="submit"

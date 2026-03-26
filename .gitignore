@@ -1,8 +1,6 @@
-# .gitignore
-.venv/
-venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
@@ -11,18 +9,38 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.venv/
+venv/
+
+# Environment
 .env
 .env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
 .DS_Store
+
+# Database
 *.db
 *.sqlite
 *.sqlite3
-.idea/
-.vscode/
 instance/
+
+# Logs
 *.log
-.render/
-skeleton/
-leads.csv
-docs/
+
+# Node / Tailwind build tooling
+node_modules/
+
+# Data files — never commit customer PII
+*.csv
 backup/
+
+# Deployment
+.render/
+
+# Legacy / scratch
+skeleton/
+docs/

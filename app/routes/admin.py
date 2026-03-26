@@ -98,8 +98,8 @@ def admin_reset_password(user_id):
     user = User.query.get_or_404(user_id)
     new_password = request.form.get("new_password", "")
 
-    if len(new_password) < 6:
-        flash("Password must be at least 6 characters.", "error")
+    if len(new_password) < 12:
+        flash("Password must be at least 12 characters.", "error")
         return redirect(url_for("admin.admin_users"))
 
     user.set_password(new_password)

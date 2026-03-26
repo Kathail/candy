@@ -1,15 +1,23 @@
 import logging
 import os
 import pathlib
+import secrets
 import sys
 
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+
+# Load .env for local development (no-op if python-dotenv not installed)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 _is_dev = os.environ.get("FLASK_ENV") == "development"
 logging.basicConfig(
@@ -29,6 +37,18 @@ login_manager.login_message = "Please log in to access this page."
 login_manager.login_message_category = "info"
 
 
+def _require_env(name, *, dev_default=None):
+    """Return an env var, or exit with a clear message if missing in production."""
+    value = os.environ.get(name)
+    if value:
+        return value
+    if _is_dev and dev_default is not None:
+        logger.warning(f"{name} not set — using development default. Do NOT deploy like this.")
+        return dev_default
+    logger.critical(f"FATAL: Required environment variable {name} is not set. Refusing to start.")
+    sys.exit(1)
+
+
 def create_app():
     base_dir = pathlib.Path(__file__).resolve().parent.parent
     app = Flask(
@@ -40,7 +60,13 @@ def create_app():
     is_dev = os.environ.get("FLASK_ENV") == "development"
     app.config["DEBUG"] = is_dev
 
-    # Database
+    # ---------- SECRET_KEY (required) ----------
+    app.config["SECRET_KEY"] = _require_env(
+        "SECRET_KEY",
+        dev_default="dev-only-" + secrets.token_hex(16),
+    )
+
+    # ---------- Database ----------
     database_url = os.environ.get("DATABASE_URL", "sqlite:///candy_route.db")
     turso_token = os.environ.get("TURSO_AUTH_TOKEN")
     engine_options = {}
@@ -59,20 +85,7 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
-    # Secret key
-    _secret_key = os.environ.get("SECRET_KEY")
-    if not _secret_key or _secret_key == "dev-secret-key-change-in-production":
-        if is_dev:
-            _secret_key = "dev-secret-key-change-in-production"
-            logger.warning("No SECRET_KEY set — using insecure default.")
-        else:
-            logger.critical("FATAL: SECRET_KEY is missing. Refusing to start in production.")
-            sys.exit(1)
-    app.config["SECRET_KEY"] = _secret_key
-
-    if not os.environ.get("ADMIN_PASSWORD") and not is_dev:
-        logger.warning("ADMIN_PASSWORD not set — default admin will get a random password.")
-
+    # ---------- Security ----------
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
 
@@ -82,7 +95,7 @@ def create_app():
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["PERMANENT_SESSION_LIFETIME"] = 28800
 
-    # Extensions
+    # ---------- Extensions ----------
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
@@ -118,7 +131,13 @@ def create_app():
     from app.routes import register_blueprints
     register_blueprints(app)
 
-    # Error handlers
+    # ---------- Health check ----------
+    @app.route("/health")
+    @csrf.exempt
+    def health():
+        return jsonify(status="ok"), 200
+
+    # ---------- Error handlers ----------
     for code, template in [(403, "errors/403.html"), (404, "errors/404.html"), (429, "errors/429.html")]:
         app.register_error_handler(code, lambda e, t=template: (render_template(t), e.code))
 
