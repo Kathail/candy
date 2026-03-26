@@ -54,17 +54,20 @@ def _add_column(table, column_name, column_def, is_postgres=False):
     try:
         db.session.execute(text(sql))
         db.session.commit()
-        logger.info(f"Migration OK: {table}.{column_name}")
+        print(f"[init_db] Migration OK: {table}.{column_name}", flush=True)
     except Exception as e:
         db.session.rollback()
-        logger.warning(f"Migration FAILED: {table}.{column_name} — {e} — SQL: {sql}")
+        print(f"[init_db] Migration FAILED: {table}.{column_name} — {e} — SQL: {sql}", flush=True)
 
 
 def init_db(app):
     """Initialize database tables and fix any data issues."""
     with app.app_context():
-        db.create_all()
-        logger.info("db.create_all() completed")
+        try:
+            db.create_all()
+            print("[init_db] create_all completed", flush=True)
+        except Exception as e:
+            print(f"[init_db] create_all FAILED: {e}", flush=True)
 
         is_pg = "postgresql" in app.config.get("SQLALCHEMY_DATABASE_URI", "")
 
@@ -161,4 +164,4 @@ def init_db(app):
         except Exception:
             db.session.rollback()
 
-        logger.info("init_db completed successfully")
+        print("[init_db] completed successfully", flush=True)
