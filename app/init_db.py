@@ -61,13 +61,24 @@ def _add_column(table, column_name, column_def, is_postgres=False):
 
 
 def init_db(app):
-    """Initialize database tables and fix any data issues."""
+    """Initialize database tables and run migrations. Skips if already done."""
     with app.app_context():
+        # Quick check: if user table has is_active_user column, everything is migrated
+        from sqlalchemy import text
+        try:
+            db.session.execute(text('SELECT is_active_user FROM "user" LIMIT 1'))
+            db.session.rollback()
+            # All good — tables exist and are migrated
+            return
+        except Exception:
+            db.session.rollback()
+
+        # Need to initialize
         try:
             db.create_all()
-            print("[init_db] create_all completed", flush=True)
         except Exception as e:
             print(f"[init_db] create_all FAILED: {e}", flush=True)
+            return
 
         is_pg = "postgresql" in app.config.get("SQLALCHEMY_DATABASE_URI", "")
 
