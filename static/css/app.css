@@ -1,3 +1,6 @@
+/* Alpine.js cloak — hides elements until Alpine initializes */
+[x-cloak] { display: none !important; }
+
 :root {
     --bg: #0b1220;
     --panel: #1e293b;

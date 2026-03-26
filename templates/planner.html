@@ -929,6 +929,24 @@ content %}
 </style>
 
 <script>
+    const CSRF_TOKEN = '{{ csrf_token() }}';
+
+    // Helper: add CSRF to FormData
+    function csrfFormData(data = {}) {
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF_TOKEN);
+        for (const [k, v] of Object.entries(data)) fd.append(k, v);
+        return fd;
+    }
+
+    // Helper: POST with CSRF header (for JSON responses)
+    function csrfPost(url) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF_TOKEN }
+        });
+    }
+
     // Helper function to format date as YYYY-MM-DD in local timezone
     function formatDateLocal(date) {
         const year = date.getFullYear();
@@ -1081,9 +1099,10 @@ content %}
                         const customer = this.customers.find(c => c.id === stop.customer_id);
                         if (!customer) continue;
 
-                        const formData = new FormData();
-                        formData.append('customer_id', customer.id);
-                        formData.append('route_date', dateStr);
+                        const formData = csrfFormData({
+                            'customer_id': customer.id,
+                            'route_date': dateStr
+                        });
 
                         try {
                             await fetch('/planner/add-stop', {
@@ -1285,9 +1304,10 @@ content %}
                     return;
                 }
 
-                const formData = new FormData();
-                formData.append('customer_id', customer.id);
-                formData.append('route_date', this.selectedDate);
+                const formData = csrfFormData({
+                    'customer_id': customer.id,
+                    'route_date': this.selectedDate
+                });
 
                 try {
                     const response = await fetch('/planner/add-stop', {
@@ -1320,9 +1340,7 @@ content %}
 
             async removeStop(stopId) {
                 try {
-                    const response = await fetch(`/planner/stop/${stopId}/remove`, {
-                        method: 'POST'
-                    });
+                    const response = await csrfPost(`/planner/stop/${stopId}/remove`);
 
                     const data = await response.json();
 
@@ -1342,9 +1360,7 @@ content %}
                 if (!this.selectedDate || this.currentStops.length === 0) return;
 
                 try {
-                    const response = await fetch(`/planner/route/${this.selectedDate}/optimize`, {
-                        method: 'POST'
-                    });
+                    const response = await csrfPost(`/planner/route/${this.selectedDate}/optimize`);
 
                     const data = await response.json();
 
@@ -1362,9 +1378,7 @@ content %}
                 if (!silent && !confirm('Clear all stops from this route?')) return;
 
                 try {
-                    const response = await fetch(`/planner/route/${this.selectedDate}/clear`, {
-                        method: 'POST'
-                    });
+                    const response = await csrfPost(`/planner/route/${this.selectedDate}/clear`);
 
                     const data = await response.json();
 
