@@ -32,6 +32,72 @@
         </div>
     </div>
 
+    <!-- Add Customer Inline Form -->
+    <div x-show="showAddModal"
+         x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 -translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 -translate-y-2"
+         @keydown.escape.window="showAddModal = false"
+         class="bg-panel rounded-xl shadow-soft p-4 mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">Add New Customer</h3>
+            <button @click="showAddModal = false" class="text-muted hover:text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form action="/customers/add" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-xs text-muted mb-1">Name *</label>
+                <input type="text" name="name" required
+                       class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                       placeholder="Customer name">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Phone</label>
+                <input type="tel" name="phone"
+                       class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                       placeholder="(555) 123-4567">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Address</label>
+                <input type="text" name="address"
+                       class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                       placeholder="123 Main St, City, State">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">City</label>
+                <input type="text" name="city"
+                       class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                       placeholder="Springfield">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-xs text-muted mb-1">Notes</label>
+                <textarea name="notes" rows="2"
+                          class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                          placeholder="Any special notes..."></textarea>
+            </div>
+            <div class="md:col-span-2 flex gap-2 pt-1">
+                <button type="submit"
+                        class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                    Add Customer
+                </button>
+                <button type="button"
+                        @click="showAddModal = false"
+                        class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+
     <!-- Search, Filter, and Sort -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-6">
         <input
@@ -221,73 +287,6 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Add Customer Modal -->
-    <div x-show="showAddModal"
-         x-cloak
-         @keydown.escape.window="showAddModal = false"
-         class="fixed inset-0 z-50 overflow-y-auto"
-         style="display: none;">
-        <div class="flex items-center justify-center min-h-screen px-4">
-            <div @click="showAddModal = false" class="fixed inset-0 bg-black/50"></div>
-
-            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">Add New Customer</h3>
-                    <button @click="showAddModal = false" class="text-muted hover:text-white">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <form action="/customers/add" method="POST" class="space-y-4">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Name *</label>
-                        <input type="text" name="name" required
-                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                               placeholder="Customer name">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Phone</label>
-                        <input type="tel" name="phone"
-                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                               placeholder="(555) 123-4567">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Address</label>
-                        <input type="text" name="address"
-                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                               placeholder="123 Main St, City, State">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">City</label>
-                        <input type="text" name="city"
-                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                               placeholder="Springfield">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Notes</label>
-                        <textarea name="notes" rows="3"
-                                  class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                                  placeholder="Any special notes..."></textarea>
-                    </div>
-                    <div class="flex gap-2 pt-2">
-                        <button type="submit"
-                                class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
-                            Add Customer
-                        </button>
-                        <button type="button"
-                                @click="showAddModal = false"
-                                class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Edit Customer Modal -->
     <div id="edit-modal-wrapper" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">

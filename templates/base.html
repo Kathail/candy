@@ -150,6 +150,20 @@
             <!-- Main Content -->
             <main class="flex-1 overflow-x-hidden pb-20 lg:pb-0">
                 <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    <div class="mb-4 space-y-2">
+                        {% for category, message in messages %}
+                        <div class="px-4 py-3 rounded-lg text-sm font-medium
+                            {% if category == 'error' %}bg-danger/20 border border-danger/50 text-danger
+                            {% elif category == 'success' %}bg-good/20 border border-good/50 text-good
+                            {% else %}bg-brand/20 border border-brand/50 text-brand{% endif %}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
                     {% block content %}{% endblock %}
                 </div>
             </main>

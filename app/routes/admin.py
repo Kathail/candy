@@ -4,7 +4,7 @@ import logging
 import zipfile
 from datetime import datetime, timezone
 
-from flask import Blueprint, Response, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app import db
@@ -33,13 +33,16 @@ def admin_add_user():
     role = request.form.get("role", "sales")
 
     if not username or not email or not password:
-        return jsonify({"error": "All fields required"}), 400
+        flash("All fields are required.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     if User.query.filter_by(username=username).first():
-        return jsonify({"error": "Username already exists"}), 400
+        flash("Username already exists.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists"}), 400
+        flash("Email already exists.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     user = User(username=username, email=email, role=role)
     user.set_password(password)
@@ -48,6 +51,7 @@ def admin_add_user():
     log_audit(current_user.id, "create_user", f"Created user {username}", "user", user.id)
     db.session.commit()
     logger.info(f"Admin {current_user.username} created user {username}")
+    flash(f"User {username} created successfully.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -56,7 +60,8 @@ def admin_add_user():
 @admin_required
 def admin_delete_user(user_id):
     if user_id == current_user.id:
-        return jsonify({"error": "Cannot delete yourself"}), 400
+        flash("Cannot delete yourself.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     user = User.query.get_or_404(user_id)
     username = user.username
@@ -64,6 +69,7 @@ def admin_delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     logger.info(f"Admin {current_user.username} deleted user {username}")
+    flash(f"User {username} deleted.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -72,7 +78,8 @@ def admin_delete_user(user_id):
 @admin_required
 def admin_toggle_role(user_id):
     if user_id == current_user.id:
-        return jsonify({"error": "Cannot change your own role"}), 400
+        flash("Cannot change your own role.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     user = User.query.get_or_404(user_id)
     old_role = user.role
@@ -80,6 +87,7 @@ def admin_toggle_role(user_id):
     log_audit(current_user.id, "toggle_role", f"Changed {user.username} from {old_role} to {user.role}", "user", user_id)
     db.session.commit()
     logger.info(f"Admin {current_user.username} changed {user.username} role to {user.role}")
+    flash(f"{user.username} is now {user.role}.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -91,12 +99,14 @@ def admin_reset_password(user_id):
     new_password = request.form.get("new_password", "")
 
     if len(new_password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters"}), 400
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     user.set_password(new_password)
     log_audit(current_user.id, "reset_password", f"Reset password for {user.username}", "user", user_id)
     db.session.commit()
     logger.info(f"Admin {current_user.username} reset password for {user.username}")
+    flash(f"Password reset for {user.username}.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
@@ -305,13 +315,16 @@ def admin_edit_user(user_id):
     email = request.form.get("email", "").strip()
 
     if not username or not email:
-        return jsonify({"error": "Username and email are required"}), 400
+        flash("Username and email are required.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     if username != user.username and User.query.filter_by(username=username).first():
-        return jsonify({"error": "Username already exists"}), 400
+        flash("Username already exists.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     if email != user.email and User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists"}), 400
+        flash("Email already exists.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     changes = []
     if username != user.username:
@@ -324,6 +337,9 @@ def admin_edit_user(user_id):
     if changes:
         log_audit(current_user.id, "edit_user", ", ".join(changes), "user", user_id)
         db.session.commit()
+        flash(f"User updated.", "success")
+    else:
+        flash("No changes made.", "info")
 
     return redirect(url_for("admin.admin_users"))
 
@@ -335,7 +351,8 @@ def admin_edit_user(user_id):
 @admin_required
 def admin_toggle_active(user_id):
     if user_id == current_user.id:
-        return jsonify({"error": "Cannot deactivate yourself"}), 400
+        flash("Cannot deactivate yourself.", "error")
+        return redirect(url_for("admin.admin_users"))
 
     user = User.query.get_or_404(user_id)
     user.is_active_user = not user.is_active_user
@@ -343,6 +360,7 @@ def admin_toggle_active(user_id):
     log_audit(current_user.id, "toggle_active", f"{status} user {user.username}", "user", user_id)
     db.session.commit()
     logger.info(f"Admin {current_user.username} {status} user {user.username}")
+    flash(f"User {user.username} {status}.", "success")
     return redirect(url_for("admin.admin_users"))
 
 
