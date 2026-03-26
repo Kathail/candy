@@ -4,7 +4,8 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from app import db
-from app.models import ActivityLog, Announcement, AuditLog, Customer, Payment, RouteStop, Setting, User
+from app.models import (ActivityLog, Announcement, AuditLog, Customer, Payment,
+                        RouteStop, RouteTemplate, RouteTemplateStop, Setting, User)
 
 logger = logging.getLogger(__name__)
 

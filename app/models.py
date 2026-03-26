@@ -101,3 +101,22 @@ class Setting(db.Model):
     value = db.Column(db.Text)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
+
+
+class RouteTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship("User", backref="route_templates")
+    stops = db.relationship("RouteTemplateStop", backref="template",
+                            cascade="all, delete-orphan",
+                            order_by="RouteTemplateStop.sequence")
+
+
+class RouteTemplateStop(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey("route_template.id"), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    sequence = db.Column(db.Integer)
+    customer = db.relationship("Customer")

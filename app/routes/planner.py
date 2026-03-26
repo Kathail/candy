@@ -4,10 +4,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, render_template, request
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from app import db
-from app.models import Customer, Payment, RouteStop
+from app.models import Customer, Payment, RouteStop, RouteTemplate, RouteTemplateStop
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("planner", __name__)
@@ -39,12 +39,11 @@ def planner():
         if c.last_visit and c.last_visit < thirty_days_ago
     )
 
-    # Get upcoming routes (next 7 days) — single query instead of 7
-    week_start = today
+    # Get upcoming routes (next 7 days)
     week_end_date = today + timedelta(days=7)
     all_upcoming_stops = (
         RouteStop.query
-        .filter(RouteStop.route_date >= week_start, RouteStop.route_date < week_end_date)
+        .filter(RouteStop.route_date >= today, RouteStop.route_date < week_end_date)
         .order_by(RouteStop.route_date, RouteStop.sequence)
         .all()
     )
@@ -52,30 +51,13 @@ def planner():
     for stop in all_upcoming_stops:
         stops_by_day[stop.route_date].append(stop)
 
-    upcoming_routes = []
-    for i in range(7):
-        check_date = today + timedelta(days=i)
-        day_stops = stops_by_day.get(check_date, [])
-
-        if day_stops or i == 0:  # Always show today
-            upcoming_routes.append(
-                {
-                    "date": check_date.strftime("%Y-%m-%d"),
-                    "date_formatted": check_date.strftime("%b %d, %Y"),
-                    "day_name": check_date.strftime("%A"),
-                    "stop_count": len(day_stops),
-                    "first_customer": day_stops[0].customer.name if day_stops else None,
-                }
-            )
-
-    # Calculate weekly stats (reuse already-fetched data)
     weekly_routes = len(stops_by_day)
     total_planned_stops = len(all_upcoming_stops)
 
-    # Prepare customer data for Alpine.js
+    # Prepare customer data for Alpine.js — include days_overdue for urgency sort
     customers_data = []
     for c in available_customers:
-        days_since = (today - c.last_visit).days if c.last_visit else None
+        days_since = (today - c.last_visit).days if c.last_visit else 9999
         customers_data.append(
             {
                 "id": c.id,
@@ -83,7 +65,8 @@ def planner():
                 "city": c.city or "",
                 "balance": float(c.balance) if c.balance is not None else 0.0,
                 "last_visit": c.last_visit.strftime("%b %d") if c.last_visit else None,
-                "needs_visit": days_since > 30 if days_since else False,
+                "days_overdue": days_since,
+                "needs_visit": days_since > 30,
             }
         )
 
@@ -91,7 +74,7 @@ def planner():
         "planner.html",
         customers=available_customers,
         customers_json=json.dumps(customers_data),
-        upcoming_routes=upcoming_routes,
+        upcoming_routes=[],
         weekly_routes=weekly_routes,
         total_planned_stops=total_planned_stops,
         needs_visit=needs_visit,
@@ -136,6 +119,13 @@ def add_stop_to_route():
         route_date = datetime.strptime(route_date_str, "%Y-%m-%d").date()
         customer = Customer.query.get_or_404(int(customer_id))
 
+        # Prevent duplicate stops
+        existing = RouteStop.query.filter_by(
+            customer_id=customer.id, route_date=route_date
+        ).first()
+        if existing:
+            return jsonify({"success": False, "error": "Customer already on this route"}), 400
+
         max_seq = (
             db.session.query(db.func.max(RouteStop.sequence))
             .filter_by(route_date=route_date)
@@ -158,7 +148,8 @@ def add_stop_to_route():
                 "success": True,
                 "stop_id": new_stop.id,
                 "customer_name": customer.name,
-                "customer_city": customer.city,
+                "customer_city": customer.city or "",
+                "customer_balance": float(customer.balance) if customer.balance else 0.0,
             }
         )
     except Exception as e:
@@ -170,10 +161,8 @@ def add_stop_to_route():
 @login_required
 def remove_stop_from_route(stop_id):
     stop = RouteStop.query.get_or_404(stop_id)
-
     db.session.delete(stop)
     db.session.commit()
-
     return jsonify({"success": True})
 
 
@@ -184,17 +173,183 @@ def clear_route(route_date):
         date_obj = datetime.strptime(route_date, "%Y-%m-%d").date()
         RouteStop.query.filter_by(route_date=date_obj).delete()
         db.session.commit()
-
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error clearing route: {str(e)}")
         return jsonify({"success": False, "error": "Failed to clear route"}), 500
 
 
+@bp.route("/planner/route/<route_date>/reorder", methods=["POST"])
+@login_required
+def reorder_route(route_date):
+    """Accept JSON array of stop IDs in new order."""
+    try:
+        date_obj = datetime.strptime(route_date, "%Y-%m-%d").date()
+        data = request.get_json()
+        stop_ids = data.get("stop_ids", [])
+
+        if not stop_ids:
+            return jsonify({"success": False, "error": "No stop IDs provided"}), 400
+
+        stops = RouteStop.query.filter_by(route_date=date_obj).all()
+        stop_map = {s.id: s for s in stops}
+
+        for idx, stop_id in enumerate(stop_ids, start=1):
+            if stop_id in stop_map:
+                stop_map[stop_id].sequence = idx
+
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error reordering route: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to reorder"}), 500
+
+
+@bp.route("/planner/route/<route_date>/copy", methods=["POST"])
+@login_required
+def copy_route(route_date):
+    """Copy all stops from source date to target date."""
+    try:
+        source_date = datetime.strptime(route_date, "%Y-%m-%d").date()
+        target_date_str = request.form.get("target_date")
+        if not target_date_str:
+            return jsonify({"success": False, "error": "No target date"}), 400
+
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+        source_stops = (
+            RouteStop.query.filter_by(route_date=source_date)
+            .order_by(RouteStop.sequence)
+            .all()
+        )
+
+        if not source_stops:
+            return jsonify({"success": False, "error": "No stops on source date"}), 400
+
+        # Get existing max sequence on target date
+        max_seq = (
+            db.session.query(db.func.max(RouteStop.sequence))
+            .filter_by(route_date=target_date)
+            .scalar()
+            or 0
+        )
+
+        copied = 0
+        for stop in source_stops:
+            # Skip if customer already on target date
+            exists = RouteStop.query.filter_by(
+                customer_id=stop.customer_id, route_date=target_date
+            ).first()
+            if exists:
+                continue
+
+            max_seq += 1
+            new_stop = RouteStop(
+                customer_id=stop.customer_id,
+                route_date=target_date,
+                sequence=max_seq,
+                completed=False,
+            )
+            db.session.add(new_stop)
+            copied += 1
+
+        db.session.commit()
+
+        # Return the new stops for the target date
+        new_stops = (
+            RouteStop.query.options(db.joinedload(RouteStop.customer))
+            .filter_by(route_date=target_date)
+            .order_by(RouteStop.sequence)
+            .all()
+        )
+
+        stops_data = [
+            {
+                "id": s.id,
+                "customer_id": s.customer_id,
+                "customer_name": s.customer.name,
+                "customer_city": s.customer.city or "",
+                "customer_balance": float(s.customer.balance) if s.customer.balance else 0.0,
+                "sequence": s.sequence,
+            }
+            for s in new_stops
+        ]
+
+        return jsonify({"success": True, "copied": copied, "stops": stops_data})
+    except Exception as e:
+        logger.error(f"Error copying route: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to copy route"}), 500
+
+
+@bp.route("/planner/route/<route_date>/optimize", methods=["POST"])
+@login_required
+def optimize_route(route_date):
+    """Optimize route using nearest-neighbor algorithm grouped by city."""
+    try:
+        date_obj = datetime.strptime(route_date, "%Y-%m-%d").date()
+        stops = RouteStop.query.options(
+            db.joinedload(RouteStop.customer)
+        ).filter_by(route_date=date_obj).all()
+
+        if len(stops) <= 1:
+            stops_data = [
+                {
+                    "id": s.id,
+                    "customer_id": s.customer_id,
+                    "customer_name": s.customer.name,
+                    "customer_city": s.customer.city or "",
+                    "customer_balance": float(s.customer.balance) if s.customer.balance else 0.0,
+                    "sequence": s.sequence,
+                }
+                for s in stops
+            ]
+            return jsonify({"success": True, "stops": stops_data})
+
+        # Group stops by city
+        city_groups = {}
+        for stop in stops:
+            city = stop.customer.city or "Unknown"
+            if city not in city_groups:
+                city_groups[city] = []
+            city_groups[city].append(stop)
+
+        # Sort cities by number of stops (visit cities with more stops first)
+        sorted_cities = sorted(
+            city_groups.items(), key=lambda x: len(x[1]), reverse=True
+        )
+
+        # Within each city, sort by customer name
+        optimized_stops = []
+        for city, city_stops in sorted_cities:
+            sorted_city_stops = sorted(city_stops, key=lambda s: s.customer.name)
+            optimized_stops.extend(sorted_city_stops)
+
+        for idx, stop in enumerate(optimized_stops, start=1):
+            stop.sequence = idx
+
+        db.session.commit()
+
+        stops_data = [
+            {
+                "id": s.id,
+                "customer_id": s.customer_id,
+                "customer_name": s.customer.name,
+                "customer_city": s.customer.city or "",
+                "customer_balance": float(s.customer.balance) if s.customer.balance else 0.0,
+                "sequence": s.sequence,
+            }
+            for s in optimized_stops
+        ]
+
+        return jsonify({"success": True, "stops": stops_data})
+    except Exception as e:
+        logger.error(f"Error optimizing route: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to optimize route"}), 500
+
+
 @bp.route("/customer/<int:customer_id>/details")
 @login_required
 def get_customer_details(customer_id):
-    """Get detailed customer information for modal"""
     customer = Customer.query.get_or_404(customer_id)
 
     payments = (
@@ -224,9 +379,6 @@ def get_customer_details(customer_id):
                 "last_visit": customer.last_visit.strftime("%Y-%m-%d")
                 if customer.last_visit
                 else None,
-                "created_at": customer.created_at.strftime("%Y-%m-%d")
-                if customer.created_at
-                else None,
             },
             "payments": [
                 {
@@ -252,7 +404,6 @@ def get_customer_details(customer_id):
 @bp.route("/planner/all-stops")
 @login_required
 def get_all_stops():
-    """Return all stops grouped by date for the calendar"""
     today = datetime.now(timezone.utc).date()
     future_date = today + timedelta(days=60)
 
@@ -274,7 +425,8 @@ def get_all_stops():
                 "id": stop.id,
                 "customer_id": stop.customer_id,
                 "customer_name": stop.customer.name,
-                "customer_city": stop.customer.city,
+                "customer_city": stop.customer.city or "",
+                "customer_balance": float(stop.customer.balance) if stop.customer.balance else 0.0,
                 "sequence": stop.sequence,
             }
         )
@@ -282,67 +434,151 @@ def get_all_stops():
     return jsonify({"stops": stops_by_date})
 
 
-@bp.route("/planner/route/<route_date>/optimize", methods=["POST"])
+# --- Templates (server-side) ---
+
+@bp.route("/planner/templates")
 @login_required
-def optimize_route(route_date):
-    """Optimize route using nearest-neighbor algorithm grouped by city"""
+def list_templates():
+    templates = RouteTemplate.query.filter_by(user_id=current_user.id).order_by(
+        RouteTemplate.created_at.desc()
+    ).all()
+
+    return jsonify({
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "stop_count": len(t.stops),
+                "stops": [
+                    {
+                        "customer_id": s.customer_id,
+                        "customer_name": s.customer.name,
+                        "customer_city": s.customer.city or "",
+                    }
+                    for s in t.stops
+                ],
+            }
+            for t in templates
+        ]
+    })
+
+
+@bp.route("/planner/templates", methods=["POST"])
+@login_required
+def save_template():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    route_date_str = data.get("route_date")
+
+    if not name or not route_date_str:
+        return jsonify({"success": False, "error": "Name and date required"}), 400
+
     try:
-        date_obj = datetime.strptime(route_date, "%Y-%m-%d").date()
-        stops = RouteStop.query.filter_by(route_date=date_obj).all()
-
-        if len(stops) <= 1:
-            return render_template(
-                "partials/route_builder.html",
-                stops=stops,
-                route_date=route_date,
-                date_formatted=date_obj.strftime("%b %d, %Y"),
-                day_name=date_obj.strftime("%A"),
-            )
-
-        # Group stops by city
-        city_groups = {}
-        for stop in stops:
-            city = stop.customer.city or "Unknown"
-            if city not in city_groups:
-                city_groups[city] = []
-            city_groups[city].append(stop)
-
-        # Sort cities by number of stops (visit cities with more stops first)
-        sorted_cities = sorted(
-            city_groups.items(), key=lambda x: len(x[1]), reverse=True
+        route_date = datetime.strptime(route_date_str, "%Y-%m-%d").date()
+        stops = (
+            RouteStop.query.filter_by(route_date=route_date)
+            .order_by(RouteStop.sequence)
+            .all()
         )
 
-        # Within each city, sort by customer name for consistency
-        optimized_stops = []
-        for city, city_stops in sorted_cities:
-            sorted_city_stops = sorted(city_stops, key=lambda s: s.customer.name)
-            optimized_stops.extend(sorted_city_stops)
+        if not stops:
+            return jsonify({"success": False, "error": "No stops on this date"}), 400
 
-        # Update sequences
-        for idx, stop in enumerate(optimized_stops, start=1):
-            stop.sequence = idx
+        template = RouteTemplate(name=name, user_id=current_user.id)
+        db.session.add(template)
+        db.session.flush()
+
+        for stop in stops:
+            ts = RouteTemplateStop(
+                template_id=template.id,
+                customer_id=stop.customer_id,
+                sequence=stop.sequence,
+            )
+            db.session.add(ts)
 
         db.session.commit()
 
-        # Reload stops in new order and return as JSON
-        stops = (
-            RouteStop.query.filter_by(route_date=date_obj)
+        return jsonify({"success": True, "template_id": template.id})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error saving template: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to save template"}), 500
+
+
+@bp.route("/planner/templates/<int:template_id>/apply", methods=["POST"])
+@login_required
+def apply_template(template_id):
+    template = RouteTemplate.query.get_or_404(template_id)
+    data = request.get_json()
+    target_date_str = data.get("target_date")
+
+    if not target_date_str:
+        return jsonify({"success": False, "error": "Target date required"}), 400
+
+    try:
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+        max_seq = (
+            db.session.query(db.func.max(RouteStop.sequence))
+            .filter_by(route_date=target_date)
+            .scalar()
+            or 0
+        )
+
+        added = 0
+        for ts in template.stops:
+            exists = RouteStop.query.filter_by(
+                customer_id=ts.customer_id, route_date=target_date
+            ).first()
+            if exists:
+                continue
+
+            max_seq += 1
+            new_stop = RouteStop(
+                customer_id=ts.customer_id,
+                route_date=target_date,
+                sequence=max_seq,
+                completed=False,
+            )
+            db.session.add(new_stop)
+            added += 1
+
+        db.session.commit()
+
+        # Return updated stops
+        new_stops = (
+            RouteStop.query.options(db.joinedload(RouteStop.customer))
+            .filter_by(route_date=target_date)
             .order_by(RouteStop.sequence)
             .all()
         )
 
         stops_data = [
             {
-                "id": stop.id,
-                "customer_id": stop.customer_id,
-                "customer_name": stop.customer.name,
-                "customer_city": stop.customer.city,
-                "sequence": stop.sequence,
+                "id": s.id,
+                "customer_id": s.customer_id,
+                "customer_name": s.customer.name,
+                "customer_city": s.customer.city or "",
+                "customer_balance": float(s.customer.balance) if s.customer.balance else 0.0,
+                "sequence": s.sequence,
             }
-            for stop in stops
+            for s in new_stops
         ]
 
-        return jsonify({"success": True, "stops": stops_data})
+        return jsonify({"success": True, "added": added, "stops": stops_data})
     except Exception as e:
-        logger.error(f"Error optimizing route: {str(e)}")
-        return jsonify({"success": False, "error": "Failed to optimize route"}), 500
+        db.session.rollback()
+        logger.error(f"Error applying template: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to apply template"}), 500
+
+
+@bp.route("/planner/templates/<int:template_id>", methods=["DELETE"])
+@login_required
+def delete_template(template_id):
+    template = RouteTemplate.query.get_or_404(template_id)
+    if template.user_id != current_user.id:
+        return jsonify({"success": False, "error": "Not your template"}), 403
+
+    db.session.delete(template)
+    db.session.commit()
+    return jsonify({"success": True})
