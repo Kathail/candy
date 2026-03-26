@@ -44,3 +44,4 @@ backup/
 # Legacy / scratch
 skeleton/
 docs/
+*.sql
