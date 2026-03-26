@@ -149,18 +149,5 @@ def create_app():
     return app
 
 
-def _create_default_app():
-    """Create and initialize the default app instance.
-    Makes `gunicorn app:app` work alongside `gunicorn wsgi:app`.
-    """
-    _app = create_app()
-    try:
-        from app.init_db import init_db
-        init_db(_app)
-    except Exception as e:
-        logger.error(f"init_db failed (app will still start): {e}")
-    return _app
-
-
 # Module-level app instance for gunicorn app:app
-app = _create_default_app()
+app = create_app()
