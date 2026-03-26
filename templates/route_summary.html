@@ -37,7 +37,7 @@
     <h2 class="text-lg font-semibold mb-3 text-good">Completed ({{ completed_stops|length }})</h2>
     <div class="space-y-2">
         {% for stop in completed_stops %}
-        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-2">
+        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-3">
             <div>
                 <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
                 {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}
@@ -55,7 +55,7 @@
     <h2 class="text-lg font-semibold mb-3 text-warn">Skipped ({{ skipped_stops|length }})</h2>
     <div class="space-y-2">
         {% for stop in skipped_stops %}
-        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-2">
+        <div class="flex items-center justify-between bg-panel2 rounded-lg px-3 py-3">
             <div>
                 <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
                 {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}
@@ -73,7 +73,7 @@
     <h2 class="text-lg font-semibold mb-3">Tomorrow's Route ({{ tomorrow_stops|length }} stops)</h2>
     <div class="space-y-2">
         {% for stop in tomorrow_stops %}
-        <div class="flex items-center bg-panel2 rounded-lg px-3 py-2">
+        <div class="flex items-center bg-panel2 rounded-lg px-3 py-3">
             <span class="text-xs text-muted w-6">{{ stop.sequence }}</span>
             <span class="font-semibold text-sm">{{ stop.customer.name }}</span>
             {% if stop.customer.city %}<span class="text-xs text-muted ml-2">{{ stop.customer.city }}</span>{% endif %}

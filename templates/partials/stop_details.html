@@ -5,7 +5,7 @@
             <div class="flex items-center gap-2">
                 <h3 class="text-lg font-semibold">{{ stop.customer.name }}</h3>
                 {% if stop.customer.tax_exempt %}
-                <span class="bg-warn/20 text-warn px-1.5 py-0.5 rounded text-[10px] font-semibold">TAX EXEMPT</span>
+                <span class="bg-warn/20 text-warn px-2 py-0.5 rounded text-xs font-semibold">TAX EX</span>
                 {% endif %}
             </div>
             <p class="text-sm text-muted">{{ stop.customer.city }}</p>
@@ -30,7 +30,7 @@
                 >Pending</span
             >
             {% endif %}
-            <button onclick="closeStopModal()" class="lg:hidden text-muted hover:text-white p-1">
+            <button onclick="closeStopModal()" class="lg:hidden text-muted hover:text-white p-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
