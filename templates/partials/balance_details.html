@@ -182,7 +182,7 @@
     <!-- Actions -->
     <div class="pt-3 border-t border-border space-y-2">
         <button
-            onclick='openGlobalPaymentModal({{ customer.id }}, {{ customer.name|tojson }}, {{ customer.balance }})'
+            onclick='openPaymentModal({{ customer.id }}, {{ customer.name|tojson }}, {{ customer.balance }})'
             class="w-full bg-good hover:bg-green-600 text-white text-sm font-semibold px-4 py-3 rounded-md transition flex items-center justify-center gap-2"
         >
             <svg
