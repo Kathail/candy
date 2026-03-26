@@ -1,7 +1,5 @@
 {% extends "base.html" %} {% block title %}Customers - Candy Dash{% endblock %}
 {% block content %}
-<<<<<<< HEAD
-=======
 
 <div x-data="customerPage()">
     <!-- Header -->
@@ -307,7 +305,6 @@
     [x-cloak] { display: none !important; }
 </style>
 
->>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
 <script>
     window.CUSTOMERS = {{ customers | tojson }};
     const TABLE_MODE = "customers";

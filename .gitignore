@@ -1,27 +1,28 @@
 # .gitignore
 .venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-<<<<<<< HEAD
 .Python
 *.so
 *.egg
 *.egg-info/
 dist/
 build/
-=======
-
-# =========================
-# Virtual environments
-# =========================
-venv/
-.venv/
->>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
 .env
+.env.*
 .DS_Store
 *.db
 *.sqlite
+*.sqlite3
 .idea/
 .vscode/
+instance/
+*.log
+.render/
+skeleton/
+leads.csv
+docs/
+backup/

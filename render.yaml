@@ -1,26 +1,8 @@
 services:
   - type: web
     name: candy-dash
-<<<<<<< HEAD
     runtime: python
     region: virginia
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 'app:create_app()'
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: candy-dash-db
-          property: connectionString
-      - key: SECRET_KEY
-        generateValue: true
-
-databases:
-  - name: candy-dash-db
-    databaseName: candy_dash
-    user: candy_user
-    region: virginia
-=======
-    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app
     envVars:
@@ -32,4 +14,3 @@ databases:
         sync: false
       - key: TURSO_AUTH_TOKEN
         sync: false
->>>>>>> 8e4f3fd (Refactor to blueprint architecture, Turso integration, production hardening)
