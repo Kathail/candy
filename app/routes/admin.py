@@ -76,6 +76,22 @@ def admin_toggle_role(user_id):
     return redirect(url_for("admin.admin_users"))
 
 
+@bp.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
+@login_required
+@admin_required
+def admin_reset_password(user_id):
+    user = User.query.get_or_404(user_id)
+    new_password = request.form.get("new_password", "")
+
+    if len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+    user.set_password(new_password)
+    db.session.commit()
+    logger.info(f"Admin {current_user.username} reset password for {user.username}")
+    return redirect(url_for("admin.admin_users"))
+
+
 @bp.route("/admin/import", methods=["GET", "POST"])
 @login_required
 @admin_required

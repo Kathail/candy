@@ -2,7 +2,7 @@
 {% block title %}User Management{% endblock %}
 {% block content %}
 
-<div x-data="{ showAddModal: false }">
+<div x-data="{ showAddModal: false, showResetModal: false, resetUserId: null, resetUsername: '' }">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
         <div>
@@ -61,6 +61,11 @@
                                         Make {{ 'Sales' if user.role == 'admin' else 'Admin' }}
                                     </button>
                                 </form>
+                                <button type="button"
+                                    @click="resetUserId = {{ user.id }}; resetUsername = '{{ user.username }}'; showResetModal = true"
+                                    class="text-xs text-warn hover:underline">
+                                    Reset PW
+                                </button>
                                 <form action="{{ url_for('admin.admin_delete_user', user_id=user.id) }}" method="POST" class="inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="button" onclick="confirmDeleteUser(this.form, '{{ user.username }}')" class="text-xs text-danger hover:underline">
@@ -76,6 +81,48 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div x-show="showResetModal"
+         x-cloak
+         @keydown.escape.window="showResetModal = false"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div @click="showResetModal = false" class="fixed inset-0 bg-black/50"></div>
+            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Reset Password</h3>
+                    <button @click="showResetModal = false" class="text-muted hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-sm text-muted mb-4">Set a new password for <span class="font-semibold text-white" x-text="resetUsername"></span></p>
+                <form :action="'/admin/users/' + resetUserId + '/reset-password'" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">New Password *</label>
+                        <input type="password" name="new_password" required minlength="6"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                               placeholder="Min 6 characters">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit"
+                                class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Reset Password
+                        </button>
+                        <button type="button"
+                                @click="showResetModal = false"
+                                class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
