@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Reassign Customers{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-semibold">Reassign Customers</h1>
+        <p class="text-xs text-muted mt-1">Bulk move customers between sales reps</p>
+    </div>
+
+    {% if error is defined and error %}
+    <div class="bg-danger/20 border border-danger/50 text-danger text-sm px-4 py-3 rounded-lg mb-6">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if success is defined and success %}
+    <div class="bg-good/20 border border-good/50 text-good text-sm px-4 py-3 rounded-lg mb-6">
+        {{ success }}
+    </div>
+    {% endif %}
+
+    <!-- Current Assignments -->
+    <div class="bg-panel rounded-xl shadow-soft p-6 mb-6">
+        <div class="text-sm font-semibold mb-3">Current Assignments</div>
+        <div class="space-y-2">
+            <div class="flex items-center justify-between py-2 border-b border-border">
+                <span class="text-sm text-muted">Unassigned</span>
+                <span class="text-sm font-semibold">{{ counts.unassigned if counts is defined else 0 }}</span>
+            </div>
+            {% for user in users %}
+            <div class="flex items-center justify-between py-2 {% if not loop.last %}border-b border-border{% endif %}">
+                <span class="text-sm">{{ user.username }}</span>
+                <span class="text-sm font-semibold">{{ counts[user.id] if counts is defined else 0 }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Reassign Form -->
+    <div class="bg-panel rounded-xl shadow-soft p-6">
+        <div class="text-sm font-semibold mb-4">Move Customers</div>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <div>
+                <label class="block text-xs text-muted mb-1">From</label>
+                <select name="source" required
+                        class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    <option value="">Select source...</option>
+                    <option value="unassigned">Unassigned ({{ counts.unassigned if counts is defined else 0 }})</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }} ({{ counts[user.id] if counts is defined else 0 }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-center">
+                <svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                </svg>
+            </div>
+
+            <div>
+                <label class="block text-xs text-muted mb-1">To</label>
+                <select name="target" required
+                        class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    <option value="">Select target...</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-brand hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Reassign Customers
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

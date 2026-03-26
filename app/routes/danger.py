@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, request, url_for
 from flask_login import current_user, login_required
 
 from app import db, limiter
-from app.helpers import admin_required
+from app.helpers import admin_required, log_audit
 from app.models import ActivityLog, Customer, Payment, RouteStop
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,8 @@ def clear_payments():
         Customer.query.update({Customer.balance: 0})
         db.session.commit()
 
+    log_audit(current_user.id, "clear_payments", f"Cleared {payment_count} payments")
+    db.session.commit()
     logger.warning(f"DANGER: {current_user.username} cleared all payments ({payment_count} records)")
     flash(f"Cleared {payment_count} payments and reset all customer balances to $0.", "success")
     return redirect(url_for("admin.admin_users"))
@@ -50,6 +52,8 @@ def clear_routes():
     RouteStop.query.delete()
     db.session.commit()
 
+    log_audit(current_user.id, "clear_routes", f"Cleared {route_count} route stops")
+    db.session.commit()
     logger.warning(f"DANGER: {current_user.username} cleared all route history ({route_count} records)")
     flash(f"Cleared {route_count} route stops.", "success")
     return redirect(url_for("admin.admin_users"))
@@ -71,6 +75,8 @@ def clear_customers():
     }
     db.session.commit()
 
+    log_audit(current_user.id, "clear_customers", f"Cleared {counts['customers']} customers and related data")
+    db.session.commit()
     logger.warning(f"DANGER: {current_user.username} cleared all customers {counts}")
     flash(f"Cleared {counts['customers']} customers, {counts['payments']} payments, "
           f"{counts['routes']} routes, {counts['activities']} activity logs.", "success")
@@ -94,6 +100,8 @@ def clear_everything():
     db.session.commit()
     total = sum(counts.values())
 
+    log_audit(current_user.id, "clear_everything", f"Full reset: {total} records cleared")
+    db.session.commit()
     logger.warning(f"DANGER: {current_user.username} cleared EVERYTHING ({total} records, users preserved)")
     flash(f"Full reset: {total} records cleared. User accounts preserved.", "success")
     return redirect(url_for("admin.admin_users"))

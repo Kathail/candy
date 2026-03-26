@@ -4,7 +4,7 @@ from flask import Blueprint, render_template
 from flask_login import login_required
 
 from app import db
-from app.models import Customer, Payment, RouteStop
+from app.models import Announcement, Customer, Payment, RouteStop
 
 bp = Blueprint("dashboard", __name__)
 
@@ -49,8 +49,11 @@ def dashboard():
     total = len(todays_stops)
     outstanding = sum(float(s.customer.balance) for s in todays_stops if s.customer.balance > 0)
 
+    announcements = Announcement.query.filter_by(is_active=True).order_by(Announcement.created_at.desc()).all()
+
     return render_template(
         "dashboard.html",
+        announcements=announcements,
         completed=completed,
         total=total,
         outstanding=f"{outstanding:.2f}",

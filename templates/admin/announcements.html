@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Announcements{% endblock %}
+{% block content %}
+
+<div x-data="{ showForm: false }">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold">Announcements</h1>
+            <p class="text-xs text-muted mt-1">Broadcast messages to all users on the dashboard</p>
+        </div>
+        <button @click="showForm = !showForm"
+                class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+            + New Announcement
+        </button>
+    </div>
+
+    {% if error %}
+    <div class="bg-danger/20 border border-danger/50 text-danger text-sm px-4 py-3 rounded-lg mb-6">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- New Announcement Form -->
+    <div x-show="showForm" x-cloak class="bg-panel rounded-xl shadow-soft p-6 mb-6">
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-xs text-muted mb-1">Title *</label>
+                <input type="text" name="title" required
+                       class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                       placeholder="Announcement title">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Body (optional)</label>
+                <textarea name="body" rows="3"
+                          class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                          placeholder="Additional details..."></textarea>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit"
+                        class="bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                    Post Announcement
+                </button>
+                <button type="button" @click="showForm = false"
+                        class="bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Announcements List -->
+    <div class="space-y-3">
+        {% for ann in announcements %}
+        <div class="bg-panel rounded-xl shadow-soft p-4 {% if not ann.is_active %}opacity-50{% endif %}">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold">{{ ann.title }}</span>
+                        {% if ann.is_active %}
+                        <span class="text-xs bg-good/20 text-good px-2 py-0.5 rounded">Active</span>
+                        {% else %}
+                        <span class="text-xs bg-panel2 text-muted px-2 py-0.5 rounded">Inactive</span>
+                        {% endif %}
+                    </div>
+                    {% if ann.body %}
+                    <div class="text-sm text-muted mt-1">{{ ann.body }}</div>
+                    {% endif %}
+                    <div class="text-xs text-muted mt-2">
+                        {{ ann.created_at.strftime('%b %d, %Y at %I:%M %p') }} &middot; {{ ann.author.username }}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <form action="{{ url_for('admin.admin_toggle_announcement', ann_id=ann.id) }}" method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="text-xs text-brand hover:underline">
+                            {{ 'Deactivate' if ann.is_active else 'Activate' }}
+                        </button>
+                    </form>
+                    <form action="{{ url_for('admin.admin_delete_announcement', ann_id=ann.id) }}" method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="text-xs text-danger hover:underline">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-panel rounded-xl shadow-soft p-8 text-center text-muted">
+            No announcements yet. Create one to broadcast a message to all users.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

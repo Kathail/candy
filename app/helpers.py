@@ -30,6 +30,41 @@ def admin_required(f):
     return decorated_function
 
 
+def get_setting(key, default=None):
+    """Get a setting value from the database."""
+    from app.models import Setting
+    setting = Setting.query.filter_by(key=key).first()
+    return setting.value if setting else default
+
+
+def set_setting(key, value):
+    """Set a setting value in the database."""
+    from app.models import Setting
+    from app import db
+    setting = Setting.query.filter_by(key=key).first()
+    if setting:
+        setting.value = value
+    else:
+        setting = Setting(key=key, value=value)
+        db.session.add(setting)
+    db.session.flush()
+
+
+def log_audit(user_id, action, description=None, target_type=None, target_id=None):
+    """Create an audit log entry."""
+    from app.models import AuditLog
+    from app import db
+    entry = AuditLog(
+        user_id=user_id,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        description=description,
+    )
+    db.session.add(entry)
+    db.session.flush()
+
+
 def sanitize_csv_value(value):
     """Prevent CSV formula injection by prefixing dangerous characters."""
     if isinstance(value, str) and value and value[0] in ("=", "+", "-", "@", "\t", "\r"):

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Team Activity{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-semibold">Team Activity</h1>
+        <p class="text-xs text-muted mt-1">Overview of team members and global stats</p>
+    </div>
+</div>
+
+<!-- Global Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-panel rounded-xl shadow-soft p-4 text-center">
+        <div class="text-2xl font-semibold text-good">{{ total_routes }}</div>
+        <div class="text-xs text-muted mt-1">Total Stops Completed</div>
+    </div>
+    <div class="bg-panel rounded-xl shadow-soft p-4 text-center">
+        <div class="text-2xl font-semibold text-brand">${{ total_payments }}</div>
+        <div class="text-xs text-muted mt-1">Total Payments Collected</div>
+    </div>
+    <div class="bg-panel rounded-xl shadow-soft p-4 text-center">
+        <div class="text-2xl font-semibold">{{ total_payment_count }}</div>
+        <div class="text-xs text-muted mt-1">Total Payment Records</div>
+    </div>
+</div>
+
+<!-- Team Members -->
+<div class="bg-panel rounded-xl shadow-soft overflow-hidden">
+    <div class="scrollable-table">
+        <table class="w-full text-sm">
+            <thead class="bg-panel2 text-muted">
+                <tr>
+                    <th class="text-left px-4 py-3 font-semibold">User</th>
+                    <th class="text-left px-4 py-3 font-semibold">Role</th>
+                    <th class="text-left px-4 py-3 font-semibold">Status</th>
+                    <th class="text-left px-4 py-3 font-semibold">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stats %}
+                <tr class="border-t border-border hover:bg-panel2 transition">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center">
+                                <span class="text-brand font-semibold text-sm">{{ s.user.username[0].upper() }}</span>
+                            </div>
+                            <div>
+                                <span class="font-semibold">{{ s.user.username }}</span>
+                                <div class="text-xs text-muted">{{ s.user.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="text-xs font-semibold px-2 py-1 rounded {% if s.user.role == 'admin' %}bg-warn/20 text-warn{% else %}bg-good/20 text-good{% endif %}">
+                            {{ s.user.role|capitalize }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if s.is_active %}
+                        <span class="text-xs font-semibold px-2 py-1 rounded bg-good/20 text-good">Active</span>
+                        {% else %}
+                        <span class="text-xs font-semibold px-2 py-1 rounded bg-danger/20 text-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-muted">
+                        {{ s.last_login.strftime('%b %d, %Y %I:%M %p') if s.last_login else 'Never' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

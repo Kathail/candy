@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from app import db
-from app.models import ActivityLog, Customer, Payment, RouteStop, User
+from app.models import ActivityLog, Announcement, AuditLog, Customer, Payment, RouteStop, Setting, User
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,30 @@ def init_db(app):
             db.session.execute(text("ALTER TABLE customer ADD COLUMN lead_source VARCHAR(50)"))
             db.session.commit()
             logger.info("Added lead_source column to customer table")
+
+        # Migrate customer table - add assigned_to column
+        if "customer" in tables and not column_exists("customer", "assigned_to"):
+            db.session.execute(text("ALTER TABLE customer ADD COLUMN assigned_to INTEGER REFERENCES user(id)"))
+            db.session.commit()
+            logger.info("Added assigned_to column to customer table")
+
+        # Migrate user table - add is_active_user and last_login columns
+        if "user" in tables:
+            if not column_exists("user", "is_active_user"):
+                if is_postgres:
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN is_active_user BOOLEAN DEFAULT TRUE'))
+                else:
+                    db.session.execute(text("ALTER TABLE user ADD COLUMN is_active_user BOOLEAN DEFAULT 1"))
+                db.session.commit()
+                logger.info("Added is_active_user column to user table")
+
+            if not column_exists("user", "last_login"):
+                if is_postgres:
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN last_login TIMESTAMP'))
+                else:
+                    db.session.execute(text("ALTER TABLE user ADD COLUMN last_login DATETIME"))
+                db.session.commit()
+                logger.info("Added last_login column to user table")
 
         # Migrate money columns from FLOAT to NUMERIC(10,2) (PostgreSQL only)
         if is_postgres:

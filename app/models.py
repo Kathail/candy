@@ -12,6 +12,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default="sales", nullable=False)  # admin, sales
+    is_active_user = db.Column(db.Boolean, default=True, nullable=False)
+    last_login = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def set_password(self, password):
@@ -37,6 +39,8 @@ class Customer(db.Model):
     status = db.Column(db.String(20), default='active', nullable=False, index=True)  # lead, active, inactive
     tax_exempt = db.Column(db.Boolean, default=False, nullable=False, index=True)
     lead_source = db.Column(db.String(50))  # referral, walk-in, cold-call, website, social, other
+    assigned_to = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    assigned_user = db.relationship("User", backref="customers")
 
 
 class RouteStop(db.Model):
@@ -68,3 +72,32 @@ class ActivityLog(db.Model):
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     customer = db.relationship("Customer", backref="activity_logs")
+
+
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False)
+    target_type = db.Column(db.String(50))  # user, customer, payment, setting, etc.
+    target_id = db.Column(db.Integer)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship("User", backref="audit_logs")
+
+
+class Announcement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    author = db.relationship("User", backref="announcements")
+
+
+class Setting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    value = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))

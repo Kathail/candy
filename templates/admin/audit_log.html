@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-semibold">Audit Log</h1>
+        <p class="text-xs text-muted mt-1">Track all admin actions</p>
+    </div>
+    <form method="GET" class="flex items-center gap-2">
+        <select name="action" onchange="this.form.submit()"
+                class="bg-panel border border-border rounded-md px-3 py-2 text-sm">
+            <option value="">All Actions</option>
+            {% for action in action_list %}
+            <option value="{{ action }}" {% if action_filter == action %}selected{% endif %}>{{ action }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="bg-panel rounded-xl shadow-soft overflow-hidden">
+    <div class="scrollable-table">
+        <table class="w-full text-sm">
+            <thead class="bg-panel2 text-muted">
+                <tr>
+                    <th class="text-left px-4 py-3 font-semibold">Time</th>
+                    <th class="text-left px-4 py-3 font-semibold">User</th>
+                    <th class="text-left px-4 py-3 font-semibold">Action</th>
+                    <th class="text-left px-4 py-3 font-semibold">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs.items %}
+                <tr class="border-t border-border hover:bg-panel2 transition">
+                    <td class="px-4 py-3 text-muted whitespace-nowrap">
+                        {{ log.created_at.strftime('%b %d, %H:%M') if log.created_at else 'N/A' }}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if log.user %}
+                        <span class="font-semibold">{{ log.user.username }}</span>
+                        {% else %}
+                        <span class="text-muted">System</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="text-xs font-semibold px-2 py-1 rounded
+                            {% if 'login' in log.action %}bg-good/20 text-good
+                            {% elif 'clear' in log.action or 'delete' in log.action %}bg-danger/20 text-danger
+                            {% elif 'create' in log.action %}bg-brand/20 text-brand
+                            {% else %}bg-warn/20 text-warn{% endif %}">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-muted">{{ log.description or '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-muted">No audit log entries yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if logs.pages > 1 %}
+<div class="flex items-center justify-center gap-2 mt-6">
+    {% if logs.has_prev %}
+    <a href="?page={{ logs.prev_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+       class="px-3 py-1 bg-panel2 rounded text-sm hover:bg-border transition">&laquo; Prev</a>
+    {% endif %}
+    <span class="text-sm text-muted">Page {{ logs.page }} of {{ logs.pages }}</span>
+    {% if logs.has_next %}
+    <a href="?page={{ logs.next_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}"
+       class="px-3 py-1 bg-panel2 rounded text-sm hover:bg-border transition">Next &raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -2,7 +2,7 @@
 {% block title %}User Management{% endblock %}
 {% block content %}
 
-<div x-data="{ showAddModal: false, showResetModal: false, resetUserId: null, resetUsername: '' }">
+<div x-data="{ showAddModal: false, showResetModal: false, resetUserId: null, resetUsername: '', showEditModal: false, editUserId: null, editUsername: '', editEmail: '' }">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
         <div>
@@ -25,7 +25,8 @@
                         <th class="text-left px-4 py-3 font-semibold">Username</th>
                         <th class="text-left px-4 py-3 font-semibold">Email</th>
                         <th class="text-left px-4 py-3 font-semibold">Role</th>
-                        <th class="text-left px-4 py-3 font-semibold">Created</th>
+                        <th class="text-left px-4 py-3 font-semibold">Status</th>
+                        <th class="text-left px-4 py-3 font-semibold">Last Login</th>
                         <th class="text-right px-4 py-3 font-semibold">Actions</th>
                     </tr>
                 </thead>
@@ -49,16 +50,34 @@
                                 {{ user.role|capitalize }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-muted">
-                            {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
+                        <td class="px-4 py-3">
+                            {% if user.is_active_user %}
+                            <span class="text-xs font-semibold px-2 py-1 rounded bg-good/20 text-good">Active</span>
+                            {% else %}
+                            <span class="text-xs font-semibold px-2 py-1 rounded bg-danger/20 text-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-muted text-xs">
+                            {{ user.last_login.strftime('%b %d, %H:%M') if user.last_login else 'Never' }}
                         </td>
                         <td class="px-4 py-3 text-right">
                             {% if user.id != current_user.id %}
-                            <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center justify-end gap-2 flex-wrap">
+                                <button type="button"
+                                    @click="editUserId = {{ user.id }}; editUsername = '{{ user.username }}'; editEmail = '{{ user.email }}'; showEditModal = true"
+                                    class="text-xs text-brand hover:underline">
+                                    Edit
+                                </button>
                                 <form action="{{ url_for('admin.admin_toggle_role', user_id=user.id) }}" method="POST" class="inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="text-xs text-brand hover:underline">
                                         Make {{ 'Sales' if user.role == 'admin' else 'Admin' }}
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('admin.admin_toggle_active', user_id=user.id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="text-xs {{ 'text-danger' if user.is_active_user else 'text-good' }} hover:underline">
+                                        {{ 'Deactivate' if user.is_active_user else 'Activate' }}
                                     </button>
                                 </form>
                                 <button type="button"
@@ -81,6 +100,51 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div x-show="showEditModal"
+         x-cloak
+         @keydown.escape.window="showEditModal = false"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div @click="showEditModal = false" class="fixed inset-0 bg-black/50"></div>
+            <div class="relative bg-panel rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Edit User</h3>
+                    <button @click="showEditModal = false" class="text-muted hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <form :action="'/admin/users/' + editUserId + '/edit'" method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Username *</label>
+                        <input type="text" name="username" required x-model="editUsername"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Email *</label>
+                        <input type="email" name="email" required x-model="editEmail"
+                               class="w-full bg-panel2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit"
+                                class="flex-1 bg-brand hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Save Changes
+                        </button>
+                        <button type="button"
+                                @click="showEditModal = false"
+                                class="flex-1 bg-panel2 hover:bg-border text-white text-sm font-semibold px-4 py-2 rounded-md transition">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

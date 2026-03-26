@@ -1,10 +1,11 @@
 import logging
+from datetime import datetime, timezone
 
 from flask import Blueprint, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import db, limiter
-from app.helpers import is_safe_redirect_url
+from app.helpers import is_safe_redirect_url, log_audit
 from app.models import User
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,15 @@ def login():
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
+            if not user.is_active_user:
+                logger.warning(f"Login BLOCKED (deactivated) user={username} ip={client_ip}")
+                return render_template("login.html", error="Account is deactivated. Contact an admin.")
+
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
             login_user(user, remember=request.form.get("remember"))
+            log_audit(user.id, "login", f"Login from {client_ip}")
+            db.session.commit()
             logger.info(f"Login SUCCESS user={username} ip={client_ip}")
             next_page = request.args.get("next")
             if not is_safe_redirect_url(next_page):
@@ -40,6 +49,8 @@ def login():
 @bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    log_audit(current_user.id, "logout")
+    db.session.commit()
     logout_user()
     return redirect(url_for("auth.login"))
 
