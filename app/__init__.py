@@ -137,3 +137,17 @@ def create_app():
         return render_template("errors/429.html"), 429
 
     return app
+
+
+def _create_default_app():
+    """Create and initialize the default app instance.
+    Makes `gunicorn app:app` work alongside `gunicorn wsgi:app`.
+    """
+    _app = create_app()
+    from app.init_db import init_db
+    init_db(_app)
+    return _app
+
+
+# Module-level app instance for gunicorn app:app
+app = _create_default_app()
